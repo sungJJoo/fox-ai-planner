@@ -385,10 +385,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
         <div class="section-title">완료 업무 리스트 <span class="completed-count" id="completedCount" style="display:none">0</span></div>
         <div class="section-sub">2시간 후 자동 아카이브 · 시트 '완료 업무' 탭</div>
       </div>
-      <button class="collapse-btn collapsed" id="completedCollapseBtn" onclick="toggleCompleted()">
-        <svg viewBox="0 0 12 12"><polyline points="3,4.5 6,7.5 9,4.5"/></svg>
-        <span id="completedCollapseLabel">펼치기</span>
-      </button>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+        <button class="add-task-btn" onclick="openTaskModal('completed')" title="이미 완료한 업무를 수동으로 추가">
+          <svg viewBox="0 0 12 12"><line x1="6" y1="2" x2="6" y2="10"/><line x1="2" y1="6" x2="10" y2="6"/></svg>
+          완료 업무 추가
+        </button>
+        <button class="collapse-btn collapsed" id="completedCollapseBtn" onclick="toggleCompleted()">
+          <svg viewBox="0 0 12 12"><polyline points="3,4.5 6,7.5 9,4.5"/></svg>
+          <span id="completedCollapseLabel">펼치기</span>
+        </button>
+      </div>
     </div>
     <div class="completed-content collapsed" id="completedContent">
       <div class="completed-controls" id="completedControls"></div>
@@ -458,7 +464,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   <div class="modal-header">
     <div>
       <div class="modal-title" id="taskModalTitle">업무 추가</div>
-      <div class="modal-sub">시트 '담당표' 탭 8행 이하에 저장됩니다</div>
+      <div class="modal-sub" id="taskModalSub">시트 '담당표' 탭 8행 이하에 저장됩니다</div>
     </div>
     <button class="modal-close" onclick="closeTaskModal()">
       <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -484,6 +490,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
         <label class="field-label">세부사항</label>
         <textarea class="field-input" id="taskDetail" placeholder="(선택) 세부 내용" maxlength="500"></textarea>
       </div>
+      <div class="field" id="taskCompletedField" style="display:none;">
+        <label class="field-label">완료시각 *</label>
+        <input class="field-input" type="datetime-local" id="taskCompletedAt"/>
+      </div>
     </div>
   </div>
   <div class="modal-footer" style="justify-content:space-between;">
@@ -499,7 +509,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 const DAYS_KO  = ['월','화','수','목','금'];
 const DAYS_EN  = ['Mon','Tue','Wed','Thu','Fri'];
 const DAYS_ALL = ['월','화','수','목','금','토'];
-const API_URL  = 'https://script.google.com/macros/s/AKfycbwclMpvyGTmjHtMayNnugayu2qmTAPma0-Q1J6gXbazEBHJXEJHSYxBTHi-Cq1FLjr6/exec';
+const API_URL  = 'https://script.google.com/macros/s/AKfycbyXg2Cpi3T2Jtm4sYDv34l93OGzBmYp4r5EivFDc6wyiDb3w7SMG1aB-EQAddwwaZsJ/exec';
 const ANCHOR   = new Date(2026,3,27);
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
@@ -1056,10 +1066,20 @@ function showToast(msg, isError=false){
 
 // ───────── 업무 CRUD 모달 ─────────
 let editingTaskRow = null;     // null = 추가 모드, 숫자 = 수정 모드
+let taskModalMode  = 'add';    // 'add' | 'edit' | 'completed-add'
 let currentTasksCache = [];    // 수정 시 기존 값을 찾기 위한 캐시
 
-function openTaskModal(row){
-  editingTaskRow = (typeof row === 'number') ? row : null;
+function openTaskModal(rowOrMode){
+  if(rowOrMode === 'completed'){
+    taskModalMode  = 'completed-add';
+    editingTaskRow = null;
+  } else if(typeof rowOrMode === 'number'){
+    taskModalMode  = 'edit';
+    editingTaskRow = rowOrMode;
+  } else {
+    taskModalMode  = 'add';
+    editingTaskRow = null;
+  }
 
   // 담당자 드롭다운 채우기 (전원 옵션 포함)
   const sel = document.getElementById('taskAssignee');
@@ -1067,21 +1087,43 @@ function openTaskModal(row){
     '<option value="AI 연구원">AI 연구원 (전원)</option>' +
     Object.values(PERSON).map(p => `<option value="${p.full}">${p.full}</option>`).join('');
 
-  if(editingTaskRow){
+  const completedField = document.getElementById('taskCompletedField');
+  const completedInput = document.getElementById('taskCompletedAt');
+  const subEl          = document.getElementById('taskModalSub');
+
+  if(taskModalMode === 'edit'){
     const t = currentTasksCache.find(x => x.row === editingTaskRow);
     document.getElementById('taskModalTitle').textContent = '업무 수정';
+    subEl.textContent = "시트 '담당표' 탭에 저장됩니다";
     document.getElementById('taskName').value     = t ? (t['업무']||'') : '';
     document.getElementById('taskAssignee').value = t ? (t['담당']||'') : '';
     document.getElementById('taskDeadline').value = t ? toDateInputValue(t['마감기한']) : '';
     document.getElementById('taskDetail').value   = t ? (t['세부사항']||'') : '';
     document.getElementById('taskDeleteBtn').style.display = 'inline-flex';
-  } else {
-    document.getElementById('taskModalTitle').textContent = '업무 추가';
+    completedField.style.display = 'none';
+  } else if(taskModalMode === 'completed-add'){
+    document.getElementById('taskModalTitle').textContent = '완료 업무 추가';
+    subEl.textContent = "이미 완료한 업무를 시트 '완료 업무' 탭에 직접 추가합니다";
     document.getElementById('taskName').value     = '';
     document.getElementById('taskAssignee').value = '';
     document.getElementById('taskDeadline').value = '';
     document.getElementById('taskDetail').value   = '';
     document.getElementById('taskDeleteBtn').style.display = 'none';
+    completedField.style.display = 'block';
+    // 기본값 = 지금
+    const now = new Date();
+    const off = now.getTimezoneOffset();
+    const local = new Date(now.getTime() - off*60*1000);
+    completedInput.value = local.toISOString().slice(0,16);
+  } else {
+    document.getElementById('taskModalTitle').textContent = '업무 추가';
+    subEl.textContent = "시트 '담당표' 탭 8행 이하에 저장됩니다";
+    document.getElementById('taskName').value     = '';
+    document.getElementById('taskAssignee').value = '';
+    document.getElementById('taskDeadline').value = '';
+    document.getElementById('taskDetail').value   = '';
+    document.getElementById('taskDeleteBtn').style.display = 'none';
+    completedField.style.display = 'none';
   }
 
   document.getElementById('taskOverlay').classList.add('show');
@@ -1105,12 +1147,16 @@ function toDateInputValue(v){
 }
 
 async function saveTask(){
-  const name     = document.getElementById('taskName').value.trim();
-  const assignee = document.getElementById('taskAssignee').value.trim();
-  const deadline = document.getElementById('taskDeadline').value.trim();
-  const detail   = document.getElementById('taskDetail').value.trim();
+  const name        = document.getElementById('taskName').value.trim();
+  const assignee    = document.getElementById('taskAssignee').value.trim();
+  const deadline    = document.getElementById('taskDeadline').value.trim();
+  const detail      = document.getElementById('taskDetail').value.trim();
+  const completedAt = document.getElementById('taskCompletedAt').value.trim();
 
   if(!name){ showToast('업무명을 입력해주세요', true); return; }
+  if(taskModalMode === 'completed-add' && !completedAt){
+    showToast('완료시각을 입력해주세요', true); return;
+  }
 
   const btn = document.getElementById('taskSaveBtn');
   btn.disabled = true;
@@ -1118,11 +1164,14 @@ async function saveTask(){
   btn.textContent = '저장 중...';
 
   try{
-    const params = new URLSearchParams({
-      action:   editingTaskRow ? 'updateTask' : 'addTask',
-      name, assignee, deadline, detail,
-    });
+    let action;
+    if(taskModalMode === 'completed-add') action = 'addCompletedTask';
+    else if(editingTaskRow)               action = 'updateTask';
+    else                                  action = 'addTask';
+
+    const params = new URLSearchParams({ action, name, assignee, deadline, detail });
     if(editingTaskRow) params.set('row', editingTaskRow);
+    if(taskModalMode === 'completed-add') params.set('completedAt', completedAt);
 
     const res  = await fetch(`${API_URL}?${params.toString()}`);
     const json = await res.json();
@@ -1130,7 +1179,10 @@ async function saveTask(){
 
     closeTaskModal();
     await loadData(true);
-    showToast(editingTaskRow ? '✓ 업무가 수정되었습니다' : '✓ 업무가 추가되었습니다');
+    const msg = (taskModalMode === 'completed-add') ? '✓ 완료 업무가 추가되었습니다'
+              : editingTaskRow                       ? '✓ 업무가 수정되었습니다'
+                                                     : '✓ 업무가 추가되었습니다';
+    showToast(msg);
   }catch(err){
     showToast('⚠ 저장 실패: ' + err.message, true);
   }finally{
