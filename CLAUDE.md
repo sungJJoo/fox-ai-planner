@@ -5,8 +5,9 @@
 
 ## 파일 구조
 - `index.html` — 전체 프론트엔드 (CSS + HTML + JS 단일 파일)
-- `CLAUDE.md` — 프로젝트 컨텍스트 (gitignore됨, 로컬 전용)
-- `.gitignore` — CLAUDE.md, .claude/ 제외
+- `apps-script.gs` — Google Apps Script 백엔드 백업 (실제 실행은 GAS 편집기)
+- `CLAUDE.md` — 프로젝트 컨텍스트
+- `.gitignore` — .claude/ 만 제외 (머신별 설정)
 
 ## 백엔드 (Google Apps Script)
 URL: https://script.google.com/macros/s/AKfycbxpQ2gMHbwXmjfkQFeGCEDDbWL4I4zCwjP6eV7vwjpPPykmKZBslnJGPrSsTyoAtT3L/exec
