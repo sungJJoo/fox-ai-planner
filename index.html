@@ -161,6 +161,21 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .task-form textarea.field-input{resize:vertical;min-height:60px;font-family:inherit;}
 .task-form .field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 
+/* 반복 업무 요일별 입력 */
+.day-inputs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.day-input-row{display:flex;align-items:center;gap:8px;}
+.day-label{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:var(--head-bg);border-radius:7px;font-size:12px;font-weight:700;color:var(--text);flex-shrink:0;}
+.day-input-row .field-input{flex:1;padding:7px 10px;font-size:12px;}
+@media(max-width:600px){.day-inputs{grid-template-columns:repeat(2,1fr);}}
+
+/* 반복 업무 카드 내 요일 칩 */
+.rec-days{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.rec-day-chip{display:inline-flex;align-items:center;gap:7px;background:var(--head-bg);border-radius:8px;padding:5px 10px 5px 6px;font-size:12px;}
+.rec-day-chip.rec-day-today{background:var(--text);color:#fff;}
+.rec-day-label{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:rgba(0,0,0,.06);border-radius:5px;font-weight:700;font-size:10px;}
+.rec-day-chip.rec-day-today .rec-day-label{background:rgba(255,255,255,.2);}
+.rec-day-value{font-weight:600;}
+
 /* 담당자 다중 선택 picker */
 .assignee-picker{display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:#fff;border:1.5px solid var(--border);border-radius:9px;min-height:44px;align-items:center;transition:border-color .15s;}
 .assignee-picker:focus-within{border-color:var(--kkh);}
@@ -395,8 +410,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   <div class="section-wrap">
     <div class="section-header">
       <div>
-        <div class="section-title">🔄 반복 업무 <span class="completed-count" id="recurringCount" style="display:none;background:#3b82f6">0</span></div>
-        <div class="section-sub">자동 삭제 없음 · 시트 '반복 업무' 탭 · 매주 토글하며 사용</div>
+        <div class="section-title">반복 업무 <span class="completed-count" id="recurringCount" style="display:none;background:#3b82f6">0</span></div>
+        <div class="section-sub">요일별 담당 · 시트 '반복 업무' 탭</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
         <button class="add-task-btn" onclick="openTaskModal('recurring')">
@@ -503,13 +518,24 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
         <label class="field-label">업무명 *</label>
         <input class="field-input" id="taskName" placeholder="예: 주간 리포트 작성" maxlength="80"/>
       </div>
-      <div class="field">
+      <div class="field" id="assigneeField">
         <label class="field-label">담당</label>
         <div class="assignee-picker" id="taskAssignee"></div>
       </div>
-      <div class="field">
+      <div class="field" id="deadlineField">
         <label class="field-label">마감기한</label>
         <input class="field-input" type="date" id="taskDeadline"/>
+      </div>
+      <div class="field" id="recurringDaysField" style="display:none;">
+        <label class="field-label">요일별 담당 <span style="font-weight:500;color:var(--faint);">(사람 이름 또는 활동 키워드, 빈 칸 OK)</span></label>
+        <div class="day-inputs">
+          <div class="day-input-row"><span class="day-label">월</span><input class="field-input" id="recDay-mon" type="text" placeholder="예: 김기환"/></div>
+          <div class="day-input-row"><span class="day-label">화</span><input class="field-input" id="recDay-tue" type="text" placeholder=""/></div>
+          <div class="day-input-row"><span class="day-label">수</span><input class="field-input" id="recDay-wed" type="text" placeholder=""/></div>
+          <div class="day-input-row"><span class="day-label">목</span><input class="field-input" id="recDay-thu" type="text" placeholder=""/></div>
+          <div class="day-input-row"><span class="day-label">금</span><input class="field-input" id="recDay-fri" type="text" placeholder=""/></div>
+          <div class="day-input-row"><span class="day-label">토</span><input class="field-input" id="recDay-sat" type="text" placeholder=""/></div>
+        </div>
       </div>
       <div class="field">
         <label class="field-label">세부사항</label>
@@ -534,7 +560,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 const DAYS_KO  = ['월','화','수','목','금'];
 const DAYS_EN  = ['Mon','Tue','Wed','Thu','Fri'];
 const DAYS_ALL = ['월','화','수','목','금','토'];
-const API_URL  = 'https://script.google.com/macros/s/AKfycbyA1PJXzJMQpqp2RWYtyLjps7Qmzxgb_-_e9-XMi_WA515fLglq0RdfG73uVjMGmRWd/exec';
+const API_URL  = 'https://script.google.com/macros/s/AKfycbxYNAkUJh8unPdsm8NACGijnkQs5eTrPg_MDWTGJik-W6AeAdczUEBPOaIIBw1FAN4d/exec';
 const ANCHOR   = new Date(2026,3,27);
 const THIRTY_MIN_MS = 30 * 60 * 1000;
 
@@ -1178,6 +1204,15 @@ function openTaskModal(rowOrMode, extra){
   const completedField = document.getElementById('taskCompletedField');
   const completedInput = document.getElementById('taskCompletedAt');
   const subEl          = document.getElementById('taskModalSub');
+  const assigneeField  = document.getElementById('assigneeField');
+  const deadlineField  = document.getElementById('deadlineField');
+  const recurringDaysField = document.getElementById('recurringDaysField');
+
+  // 반복 업무 모드면 담당/마감 숨기고 요일 입력 표시
+  const isRecurring = (taskModalMode === 'recurring-add' || taskModalMode === 'recurring-edit');
+  assigneeField.style.display      = isRecurring ? 'none'  : 'block';
+  deadlineField.style.display      = isRecurring ? 'none'  : 'block';
+  recurringDaysField.style.display = isRecurring ? 'block' : 'none';
 
   if(taskModalMode === 'edit'){
     const t = currentTasksCache.find(x => x.row === editingTaskRow);
@@ -1193,19 +1228,24 @@ function openTaskModal(rowOrMode, extra){
     const t = RECURRING_TASKS.find(x => x.row === editingTaskRow);
     document.getElementById('taskModalTitle').textContent = '반복 업무 수정';
     subEl.textContent = "시트 '반복 업무' 탭에 저장됩니다";
-    document.getElementById('taskName').value     = t ? (t['업무']||'') : '';
-    setAssigneeFromString(t ? (t['담당']||'') : '');
-    document.getElementById('taskDeadline').value = t ? toDateInputValue(t['마감기한']) : '';
-    document.getElementById('taskDetail').value   = t ? (t['세부사항']||'') : '';
+    document.getElementById('taskName').value      = t ? (t['업무']||'') : '';
+    document.getElementById('recDay-mon').value    = t ? (t['월']||'') : '';
+    document.getElementById('recDay-tue').value    = t ? (t['화']||'') : '';
+    document.getElementById('recDay-wed').value    = t ? (t['수']||'') : '';
+    document.getElementById('recDay-thu').value    = t ? (t['목']||'') : '';
+    document.getElementById('recDay-fri').value    = t ? (t['금']||'') : '';
+    document.getElementById('recDay-sat').value    = t ? (t['토']||'') : '';
+    document.getElementById('taskDetail').value    = t ? (t['세부사항']||'') : '';
     document.getElementById('taskDeleteBtn').style.display = 'inline-flex';
     completedField.style.display = 'none';
   } else if(taskModalMode === 'recurring-add'){
     document.getElementById('taskModalTitle').textContent = '반복 업무 추가';
-    subEl.textContent = "시트 '반복 업무' 탭에 저장됩니다 (자동 삭제 없음)";
-    document.getElementById('taskName').value     = '';
-    setAssigneeFromString('');
-    document.getElementById('taskDeadline').value = '';
-    document.getElementById('taskDetail').value   = '';
+    subEl.textContent = "시트 '반복 업무' 탭에 저장됩니다";
+    document.getElementById('taskName').value      = '';
+    ['mon','tue','wed','thu','fri','sat'].forEach(d => {
+      document.getElementById('recDay-'+d).value = '';
+    });
+    document.getElementById('taskDetail').value    = '';
     document.getElementById('taskDeleteBtn').style.display = 'none';
     completedField.style.display = 'none';
   } else if(taskModalMode === 'completed-add'){
@@ -1287,6 +1327,17 @@ async function saveTask(){
   closeTaskModal();
 
   try{
+    // 반복 업무는 요일별 입력
+    const isRecurring = (mode === 'recurring-add' || mode === 'recurring-edit');
+    const recDays = isRecurring ? {
+      mon: document.getElementById('recDay-mon').value.trim(),
+      tue: document.getElementById('recDay-tue').value.trim(),
+      wed: document.getElementById('recDay-wed').value.trim(),
+      thu: document.getElementById('recDay-thu').value.trim(),
+      fri: document.getElementById('recDay-fri').value.trim(),
+      sat: document.getElementById('recDay-sat').value.trim(),
+    } : null;
+
     let action;
     if(mode === 'completed-add')      action = 'addCompletedTask';
     else if(mode === 'recurring-add') action = 'addRecurringTask';
@@ -1294,7 +1345,14 @@ async function saveTask(){
     else if(eRow)                     action = 'updateTask';
     else                              action = 'addTask';
 
-    const params = new URLSearchParams({ action, name, assignee, deadline, detail });
+    const params = new URLSearchParams({ action, name, detail });
+    if(!isRecurring){
+      params.set('assignee', assignee);
+      params.set('deadline', deadline);
+    }
+    if(isRecurring){
+      Object.entries(recDays).forEach(([k,v]) => params.set(k, v));
+    }
     if(eRow) params.set('row', eRow);
     if(mode === 'completed-add') params.set('completedAt', completedAt);
 
@@ -1314,10 +1372,10 @@ async function saveTask(){
     } else if(mode === 'recurring-add'){
       RECURRING_TASKS.push({
         row: json.row,
-        업무: name, 담당: assignee,
-        마감기한: deadlineToShort(deadline),
+        업무: name,
+        월: recDays.mon, 화: recDays.tue, 수: recDays.wed,
+        목: recDays.thu, 금: recDays.fri, 토: recDays.sat,
         세부사항: detail,
-        완료: false, 완료시각: null,
       });
       buildRecurring(RECURRING_TASKS);
     } else if(mode === 'recurring-edit'){
@@ -1325,8 +1383,9 @@ async function saveTask(){
       if(idx >= 0){
         RECURRING_TASKS[idx] = {
           ...RECURRING_TASKS[idx],
-          업무: name, 담당: assignee,
-          마감기한: deadlineToShort(deadline),
+          업무: name,
+          월: recDays.mon, 화: recDays.tue, 수: recDays.wed,
+          목: recDays.thu, 금: recDays.fri, 토: recDays.sat,
           세부사항: detail,
         };
       }
@@ -1562,7 +1621,7 @@ function fireDeadlineNotifications(tasks){
   saveSentNotifs(sent);
 }
 
-// ───────── 반복 업무 리스트 ─────────
+// ───────── 반복 업무 리스트 (요일별 담당) ─────────
 function buildRecurring(tasks){
   RECURRING_TASKS = tasks || [];
 
@@ -1581,44 +1640,32 @@ function buildRecurring(tasks){
     return;
   }
 
-  // 정렬: 미완료 먼저, 그 다음 마감기한 순
-  const sorted = [...RECURRING_TASKS].sort((a,b) => {
-    if(a['완료']!==b['완료']) return a['완료']?1:-1;
-    const da=parseDate(a['마감기한']), db=parseDate(b['마감기한']);
-    if(!da && !db) return 0;
-    if(!da) return 1;
-    if(!db) return -1;
-    return da - db;
-  });
+  const todayDay = ['일','월','화','수','목','금','토'][new Date().getDay()];
+  const dayKeys = ['월','화','수','목','금','토'];
 
-  const today = midnight(new Date());
-  sorted.forEach(task => {
-    const dl   = parseDate(task['마감기한']);
-    const done = !!task['완료'];
-    const row  = task['row'];
-
-    let badge='';
-    if(!done && dl){
-      const diff = Math.floor((dl-today)/86400000);
-      badge = buildCountdownBadge(diff);
-    }
-    const state = done ? 'done' : '';
+  RECURRING_TASKS.forEach(task => {
+    const row = task['row'];
     const safeName = (task['업무']||'').replace(/'/g,'');
 
+    // 요일 칩 생성 (값이 있는 요일만)
+    const chips = dayKeys.map(d => {
+      const val = task[d];
+      if(!val) return '';
+      const isToday = d === todayDay;
+      return `<span class="rec-day-chip ${isToday?'rec-day-today':''}">
+        <span class="rec-day-label">${d}</span>
+        <span class="rec-day-value">${val}</span>
+      </span>`;
+    }).filter(Boolean).join('');
+
     const el = document.createElement('div');
-    el.className = `task-item ${state}`;
+    el.className = 'task-item';
     el.dataset.row = row;
     el.innerHTML = `
-      <div class="task-check ${done?'checked':''}" title="완료 토글 (자동 삭제 X)">
-        <svg viewBox="0 0 12 12"><polyline points="1.5,6 4.5,9.5 10.5,2.5"/></svg>
-      </div>
       <div class="task-body">
-        <div class="task-top">
-          <div class="task-name">${task['업무']}${badge}</div>
-          <div class="task-deadline">${dl?fmt(dl):'-'}</div>
-        </div>
-        <div class="task-manager">담당 · ${task['담당']||'-'}</div>
-        <div class="task-desc">${task['세부사항']||''}</div>
+        <div class="task-name">${task['업무']}</div>
+        <div class="rec-days">${chips || '<span style="font-size:12px;color:var(--faint);">요일별 담당이 비어있어요</span>'}</div>
+        ${task['세부사항']?`<div class="task-desc" style="margin-top:6px;">${task['세부사항']}</div>`:''}
       </div>
       <div class="task-actions">
         <button class="task-action-btn" title="수정" onclick="event.stopPropagation();openTaskModal(${row},'recurring')">
@@ -1628,44 +1675,8 @@ function buildRecurring(tasks){
           <svg viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6 l-1,14 a2,2 0 0 1 -2,2 H8 a2,2 0 0 1 -2,-2 L5,6"/><path d="M10 11v6M14 11v6"/></svg>
         </button>
       </div>`;
-
-    const checkEl = el.querySelector('.task-check');
-    checkEl.onclick = () => toggleRecurringTask(checkEl, el, row, done);
     root.appendChild(el);
   });
-}
-
-async function toggleRecurringTask(checkEl, itemEl, row, currentDone){
-  checkEl.classList.add('loading-spin');
-  checkEl.style.pointerEvents='none';
-  const newValue = !currentDone;
-  try{
-    const res = await fetch(`${API_URL}?action=setRecurringComplete&row=${row}&value=${newValue}`);
-    const json = await res.json();
-    if(!json.ok) throw new Error('error');
-
-    checkEl.classList.remove('loading-spin');
-    checkEl.style.pointerEvents='';
-
-    // 로컬 상태 갱신
-    const t = RECURRING_TASKS.find(x => x.row === row);
-    if(t){ t['완료'] = newValue; t['완료시각'] = newValue ? Date.now() : null; }
-
-    if(newValue){
-      checkEl.classList.add('checked');
-      itemEl.classList.add('done');
-    } else {
-      checkEl.classList.remove('checked');
-      itemEl.classList.remove('done');
-    }
-
-    checkEl.onclick = () => toggleRecurringTask(checkEl, itemEl, row, newValue);
-    showToast(newValue ? '✓ 이번 회차 완료 — 다음에 다시 체크 해제' : '↩ 완료 취소');
-  }catch(err){
-    checkEl.classList.remove('loading-spin');
-    checkEl.style.pointerEvents='';
-    showToast('⚠ 시트 반영 실패', true);
-  }
 }
 
 async function deleteRecurringTaskRow(row, taskName){

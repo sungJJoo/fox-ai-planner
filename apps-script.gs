@@ -28,10 +28,9 @@
  *   GET ?action=updateTask&row=N&name=&assignee=&deadline=&detail=
  *   GET ?action=deleteTask&row=N
  *   GET ?action=addCompletedTask&name=&assignee=&deadline=&detail=&completedAt=
- *   GET ?action=addRecurringTask&name=&assignee=&deadline=&detail=
- *   GET ?action=updateRecurringTask&row=N&name=&assignee=&deadline=&detail=
+ *   GET ?action=addRecurringTask&name=&mon=&tue=&wed=&thu=&fri=&sat=&detail=
+ *   GET ?action=updateRecurringTask&row=N&name=&mon=&tue=&wed=&thu=&fri=&sat=&detail=
  *   GET ?action=deleteRecurringTask&row=N
- *   GET ?action=setRecurringComplete&row=N&value=true/false
  *   GET ?action=addMember&name=&role=&color=
  *   GET ?action=updateMember&original=&name=&role=&color=
  *   GET ?action=deleteMember&name=
@@ -94,21 +93,31 @@ function doGet(e) {
     return cs;
   }
 
-  // ── 반복 업무 시트 자동 생성 (자동 삽입 X, 사용자가 수동 관리) ──
+  // ── 반복 업무 시트 자동 생성 (요일별 담당 구조) ──
   function ensureRecurringSheet() {
     let rs = ss.getSheetByName('반복 업무');
+    if (rs) {
+      // 옛 스키마(B열 헤더가 '담당')이면 삭제 후 재생성
+      const headerB = String(rs.getRange(1, 2).getValue()).trim();
+      if (headerB === '담당') {
+        ss.deleteSheet(rs);
+        rs = null;
+      }
+    }
     if (!rs) {
       rs = ss.insertSheet('반복 업무');
-      rs.getRange(1, 1, 1, 6).setValues([
-        ['업무', '담당', '마감기한', '세부사항', '완료', '완료시각']
+      rs.getRange(1, 1, 1, 8).setValues([
+        ['업무', '월', '화', '수', '목', '금', '토', '세부사항']
       ]);
-      rs.getRange(1, 1, 1, 6).setFontWeight('bold').setBackground('#f0ede8');
-      rs.setColumnWidth(1, 220);
-      rs.setColumnWidth(2, 110);
-      rs.setColumnWidth(3, 100);
-      rs.setColumnWidth(4, 280);
-      rs.setColumnWidth(5, 70);
-      rs.setColumnWidth(6, 160);
+      rs.getRange(1, 1, 1, 8).setFontWeight('bold').setBackground('#f0ede8');
+      rs.setColumnWidth(1, 200);
+      rs.setColumnWidth(2, 80);
+      rs.setColumnWidth(3, 80);
+      rs.setColumnWidth(4, 80);
+      rs.setColumnWidth(5, 80);
+      rs.setColumnWidth(6, 80);
+      rs.setColumnWidth(7, 80);
+      rs.setColumnWidth(8, 220);
     }
     return rs;
   }
@@ -260,13 +269,17 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
-  // ── 반복 업무 추가 ──
+  // ── 반복 업무 추가 (요일별 담당 구조) ──
   if (action === 'addRecurringTask') {
     const rs = ensureRecurringSheet();
-    const name     = e.parameter.name     || '';
-    const assignee = e.parameter.assignee || '';
-    const deadline = e.parameter.deadline || '';
-    const detail   = e.parameter.detail   || '';
+    const name = e.parameter.name || '';
+    const mon  = e.parameter.mon  || '';
+    const tue  = e.parameter.tue  || '';
+    const wed  = e.parameter.wed  || '';
+    const thu  = e.parameter.thu  || '';
+    const fri  = e.parameter.fri  || '';
+    const sat  = e.parameter.sat  || '';
+    const detail = e.parameter.detail || '';
 
     if (!name) {
       return ContentService
@@ -274,15 +287,8 @@ function doGet(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
-    let deadlineValue = '';
-    if (deadline) {
-      const d = new Date(deadline);
-      if (!isNaN(d.getTime())) deadlineValue = d;
-    }
-
-    rs.appendRow([name, assignee, deadlineValue, detail, false, '']);
+    rs.appendRow([name, mon, tue, wed, thu, fri, sat, detail]);
     const newRow = rs.getLastRow();
-    if (deadlineValue) rs.getRange(newRow, 3).setNumberFormat('yyyy-MM-dd');
 
     bumpVersion();
     return ContentService
@@ -293,11 +299,15 @@ function doGet(e) {
   // ── 반복 업무 수정 ──
   if (action === 'updateRecurringTask') {
     const rs = ensureRecurringSheet();
-    const row      = parseInt(e.parameter.row);
-    const name     = e.parameter.name     || '';
-    const assignee = e.parameter.assignee || '';
-    const deadline = e.parameter.deadline || '';
-    const detail   = e.parameter.detail   || '';
+    const row = parseInt(e.parameter.row);
+    const name = e.parameter.name || '';
+    const mon  = e.parameter.mon  || '';
+    const tue  = e.parameter.tue  || '';
+    const wed  = e.parameter.wed  || '';
+    const thu  = e.parameter.thu  || '';
+    const fri  = e.parameter.fri  || '';
+    const sat  = e.parameter.sat  || '';
+    const detail = e.parameter.detail || '';
 
     if (!row || row < 2) {
       return ContentService
@@ -305,15 +315,7 @@ function doGet(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
-    let deadlineValue = '';
-    if (deadline) {
-      const d = new Date(deadline);
-      if (!isNaN(d.getTime())) deadlineValue = d;
-    }
-
-    // A~D만 업데이트 (완료/완료시각은 유지)
-    rs.getRange(row, 1, 1, 4).setValues([[name, assignee, deadlineValue, detail]]);
-    if (deadlineValue) rs.getRange(row, 3).setNumberFormat('yyyy-MM-dd');
+    rs.getRange(row, 1, 1, 8).setValues([[name, mon, tue, wed, thu, fri, sat, detail]]);
 
     bumpVersion();
     return ContentService
@@ -331,30 +333,6 @@ function doGet(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
     rs.deleteRow(row);
-    bumpVersion();
-    return ContentService
-      .createTextOutput(JSON.stringify({ ok: true }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-
-  // ── 반복 업무 완료 토글 (자동 아카이브 없음, 상태만 변경) ──
-  if (action === 'setRecurringComplete') {
-    const rs = ensureRecurringSheet();
-    const row = parseInt(e.parameter.row);
-    const value = e.parameter.value === 'true';
-    if (!row || row < 2) {
-      return ContentService
-        .createTextOutput(JSON.stringify({ ok: false, error: '행 번호 오류' }))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-    rs.getRange(row, 5).setValue(value);
-    const tsCell = rs.getRange(row, 6);
-    if (value) {
-      tsCell.setValue(new Date());
-      tsCell.setNumberFormat('yyyy-MM-dd HH:mm:ss');
-    } else {
-      tsCell.clearContent();
-    }
     bumpVersion();
     return ContentService
       .createTextOutput(JSON.stringify({ ok: true }))
@@ -448,18 +426,20 @@ function doGet(e) {
       if (changed) csheet.getRange(2, 2, cdata.length, 1).setValues(cdata);
     }
 
-    // 5) 반복 업무에서도 담당자 이름 반영
+    // 5) 반복 업무에서도 담당자 이름 반영 (B~G의 6개 요일 컬럼 전체 스캔)
     const rsheet = ss.getSheetByName('반복 업무');
     if (rsheet && rsheet.getLastRow() > 1) {
-      const rdata = rsheet.getRange(2, 2, rsheet.getLastRow() - 1, 1).getValues();
+      const rdata = rsheet.getRange(2, 2, rsheet.getLastRow() - 1, 6).getValues();
       let changed = false;
       for (let i = 0; i < rdata.length; i++) {
-        if (String(rdata[i][0]).trim() === original) {
-          rdata[i][0] = name;
-          changed = true;
+        for (let j = 0; j < 6; j++) {
+          if (String(rdata[i][j]).trim() === original) {
+            rdata[i][j] = name;
+            changed = true;
+          }
         }
       }
-      if (changed) rsheet.getRange(2, 2, rdata.length, 1).setValues(rdata);
+      if (changed) rsheet.getRange(2, 2, rdata.length, 6).setValues(rdata);
     }
 
     bumpVersion();
@@ -613,27 +593,25 @@ function doGet(e) {
     });
   }
 
-  // 반복 업무 읽기
+  // 반복 업무 읽기 (요일별 담당 구조)
   const recurringSheet = ss.getSheetByName('반복 업무');
   let recurringTasks = [];
   if (recurringSheet && recurringSheet.getLastRow() > 1) {
     const rRaw = recurringSheet
-      .getRange(2, 1, recurringSheet.getLastRow() - 1, 6)
+      .getRange(2, 1, recurringSheet.getLastRow() - 1, 8)
       .getValues();
     recurringTasks = rRaw
-      .map((row, idx) => {
-        const completedAt = (typeof row[5] === 'object' && row[5] !== null && typeof row[5].getTime === 'function')
-          ? row[5].getTime() : null;
-        return {
-          row:       idx + 2,
-          업무:      row[0],
-          담당:      row[1],
-          마감기한:  fmtDate(row[2]),
-          세부사항:  row[3],
-          완료:      row[4] === true || row[4] === 'TRUE',
-          완료시각:  completedAt,
-        };
-      })
+      .map((row, idx) => ({
+        row:      idx + 2,
+        업무:     row[0],
+        월:       String(row[1] || '').trim(),
+        화:       String(row[2] || '').trim(),
+        수:       String(row[3] || '').trim(),
+        목:       String(row[4] || '').trim(),
+        금:       String(row[5] || '').trim(),
+        토:       String(row[6] || '').trim(),
+        세부사항: String(row[7] || '').trim(),
+      }))
       .filter(t => t['업무']);
   }
 
