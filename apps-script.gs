@@ -32,10 +32,28 @@
  *   GET ?action=deleteMember&name=
  */
 
+/**
+ * 변경 버전 카운터 — 모든 mutation 액션 끝에서 호출
+ * 클라이언트는 ?action=getHash로 이 값만 받아 변경 감지
+ */
+function bumpVersion() {
+  PropertiesService.getScriptProperties().setProperty('v', String(Date.now()));
+}
+function currentVersion() {
+  return PropertiesService.getScriptProperties().getProperty('v') || '0';
+}
+
 function doGet(e) {
 
   const action = e.parameter.action;
   const ss     = SpreadsheetApp.getActiveSpreadsheet();
+
+  // ── 변경 감지용 가벼운 핑 (폴링이 이걸로 함) ──
+  if (action === 'getHash') {
+    return ContentService
+      .createTextOutput(JSON.stringify({ v: currentVersion() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 
   // ── 멤버 시트 자동 생성 ──
   function ensureMemberSheet() {
@@ -86,6 +104,7 @@ function doGet(e) {
       tsCell.clearContent();
     }
 
+    bumpVersion();
     return ContentService
       .createTextOutput(JSON.stringify({ ok: true }))
       .setMimeType(ContentService.MimeType.JSON);
@@ -120,6 +139,7 @@ function doGet(e) {
       sheet.getRange(newRow, 3).setNumberFormat('yyyy-MM-dd');
     }
 
+    bumpVersion();
     return ContentService
       .createTextOutput(JSON.stringify({ ok: true, row: newRow }))
       .setMimeType(ContentService.MimeType.JSON);
@@ -153,6 +173,7 @@ function doGet(e) {
       sheet.getRange(row, 3).setNumberFormat('yyyy-MM-dd');
     }
 
+    bumpVersion();
     return ContentService
       .createTextOutput(JSON.stringify({ ok: true }))
       .setMimeType(ContentService.MimeType.JSON);
@@ -171,6 +192,7 @@ function doGet(e) {
 
     sheet.deleteRow(row);
 
+    bumpVersion();
     return ContentService
       .createTextOutput(JSON.stringify({ ok: true }))
       .setMimeType(ContentService.MimeType.JSON);
@@ -208,6 +230,7 @@ function doGet(e) {
     cs.getRange(newRow, 5).setNumberFormat('yyyy-MM-dd HH:mm:ss');
     if (deadlineValue) cs.getRange(newRow, 3).setNumberFormat('yyyy-MM-dd');
 
+    bumpVersion();
     return ContentService
       .createTextOutput(JSON.stringify({ ok: true, row: newRow }))
       .setMimeType(ContentService.MimeType.JSON);
@@ -227,6 +250,7 @@ function doGet(e) {
     }
 
     ms.appendRow([name, role, color]);
+    bumpVersion();
     return ContentService
       .createTextOutput(JSON.stringify({ ok: true }))
       .setMimeType(ContentService.MimeType.JSON);
@@ -299,6 +323,7 @@ function doGet(e) {
       if (changed) csheet.getRange(2, 2, cdata.length, 1).setValues(cdata);
     }
 
+    bumpVersion();
     return ContentService
       .createTextOutput(JSON.stringify({ ok: true }))
       .setMimeType(ContentService.MimeType.JSON);
@@ -313,6 +338,7 @@ function doGet(e) {
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][0]).trim() === name) {
         ms.deleteRow(i + 1);
+        bumpVersion();
         return ContentService
           .createTextOutput(JSON.stringify({ ok: true }))
           .setMimeType(ContentService.MimeType.JSON);
@@ -448,7 +474,7 @@ function doGet(e) {
   }
 
   return ContentService
-    .createTextOutput(JSON.stringify({ members, schedule, tasks, workSchedule, completedTasks }))
+    .createTextOutput(JSON.stringify({ members, schedule, tasks, workSchedule, completedTasks, v: currentVersion() }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -475,6 +501,7 @@ function cleanupCompleted() {
   const TWO_HOURS = 2 * 60 * 60 * 1000;
   const now       = new Date().getTime();
 
+  let changed = false;
   for (let i = data.length - 1; i >= 0; i--) {
     const isDone = data[i][4] === true || data[i][4] === 'TRUE';
     const ts     = (typeof data[i][5] === 'object' && data[i][5] !== null && typeof data[i][5].getTime === 'function')
@@ -489,8 +516,10 @@ function cleanupCompleted() {
       }
       // 담당표에서 삭제
       sheet.deleteRow(i + 8);
+      changed = true;
     }
   }
+  if (changed) bumpVersion();
 }
 
 /**

@@ -4,6 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>FOX AI 연구소 · 담당표</title>
+<!-- GAS 도메인에 미리 DNS/TCP 연결 — 첫 fetch 지연 단축 -->
+<link rel="preconnect" href="https://script.google.com" crossorigin/>
+<link rel="dns-prefetch" href="https://script.google.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
 <style>
 :root{
@@ -592,6 +595,7 @@ async function loadData(force){
     const data = await res.json();
     MEMBERS_LIST = data.members || [];
     PERSON       = buildPerson(MEMBERS_LIST);
+    if(data.v) lastServerVersion = data.v;  // 서버 버전 동기화
 
     const tasks         = data.tasks || [];
     const completedList = data.completedTasks || [];
@@ -1038,12 +1042,12 @@ document.addEventListener('keydown', e=>{
   }
 });
 
-// 탭이 다시 보일 때 즉시 갱신 (5분 이상 백그라운드였다면)
+// 탭이 다시 보일 때 해시 체크 (5분 이상 백그라운드였다면)
 let lastVisibleTs = Date.now();
 document.addEventListener('visibilitychange', () => {
   if(!document.hidden){
     const elapsed = Date.now() - lastVisibleTs;
-    if(elapsed > 5*60*1000 && pollEnabled) loadData(false);
+    if(elapsed > 5*60*1000 && pollEnabled) checkVersionAndLoad();
     lastVisibleTs = Date.now();
   } else {
     lastVisibleTs = Date.now();
@@ -1129,6 +1133,9 @@ function openTaskModal(rowOrMode){
   document.getElementById('taskOverlay').classList.add('show');
   document.getElementById('taskModal').classList.add('show');
   setTimeout(() => document.getElementById('taskName').focus(), 100);
+
+  // 🔥 사용자가 모달 채우는 동안 GAS 워밍업 (저장 시 콜드 스타트 회피)
+  fetch(`${API_URL}?action=getHash`).catch(()=>{});
 }
 
 function closeTaskModal(){
@@ -1144,6 +1151,14 @@ function toDateInputValue(v){
   const m = String(d.getMonth()+1).padStart(2,'0');
   const dd = String(d.getDate()).padStart(2,'0');
   return `${y}-${m}-${dd}`;
+}
+
+// yyyy-mm-dd → "M/D" (GAS fmtDate 출력 형식과 맞춤)
+function deadlineToShort(yyyymmdd){
+  if(!yyyymmdd) return '';
+  const parts = String(yyyymmdd).split('-');
+  if(parts.length !== 3) return yyyymmdd;
+  return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
 }
 
 async function saveTask(){
@@ -1163,71 +1178,123 @@ async function saveTask(){
   const origText = btn.textContent;
   btn.textContent = '저장 중...';
 
+  // 모달 닫고 진행 — 사용자는 빠르게 반응한다고 느낌
+  const mode  = taskModalMode;
+  const eRow  = editingTaskRow;
+  closeTaskModal();
+
   try{
     let action;
-    if(taskModalMode === 'completed-add') action = 'addCompletedTask';
-    else if(editingTaskRow)               action = 'updateTask';
-    else                                  action = 'addTask';
+    if(mode === 'completed-add') action = 'addCompletedTask';
+    else if(eRow)                action = 'updateTask';
+    else                         action = 'addTask';
 
     const params = new URLSearchParams({ action, name, assignee, deadline, detail });
-    if(editingTaskRow) params.set('row', editingTaskRow);
-    if(taskModalMode === 'completed-add') params.set('completedAt', completedAt);
+    if(eRow) params.set('row', eRow);
+    if(mode === 'completed-add') params.set('completedAt', completedAt);
 
     const res  = await fetch(`${API_URL}?${params.toString()}`);
     const json = await res.json();
     if(!json.ok) throw new Error(json.error || 'error');
 
-    closeTaskModal();
-    await loadData(true);
-    const msg = (taskModalMode === 'completed-add') ? '✓ 완료 업무가 추가되었습니다'
-              : editingTaskRow                       ? '✓ 업무가 수정되었습니다'
-                                                     : '✓ 업무가 추가되었습니다';
+    // 🚀 낙관적 UI 업데이트 — 전체 새로고침 없이 로컬 상태만 갱신
+    if(mode === 'completed-add'){
+      const ts = new Date(completedAt).getTime();
+      COMPLETED_TASKS.unshift({
+        업무: name, 담당: assignee,
+        마감기한: deadlineToShort(deadline),
+        세부사항: detail, 완료시각: ts,
+      });
+      buildCompleted(COMPLETED_TASKS);
+    } else if(eRow){
+      const idx = currentTasksCache.findIndex(t => t.row === eRow);
+      if(idx >= 0){
+        currentTasksCache[idx] = {
+          ...currentTasksCache[idx],
+          업무: name, 담당: assignee,
+          마감기한: deadlineToShort(deadline),
+          세부사항: detail,
+        };
+      }
+      buildTasks(currentTasksCache);
+    } else {
+      // addTask — 서버가 반환한 행 번호 사용
+      currentTasksCache.push({
+        row: json.row,
+        업무: name, 담당: assignee,
+        마감기한: deadlineToShort(deadline),
+        세부사항: detail,
+        완료: false, 완료시각: null,
+      });
+      buildTasks(currentTasksCache);
+    }
+
+    const msg = (mode === 'completed-add') ? '✓ 완료 업무가 추가되었습니다'
+              : eRow                        ? '✓ 업무가 수정되었습니다'
+                                            : '✓ 업무가 추가되었습니다';
     showToast(msg);
   }catch(err){
-    showToast('⚠ 저장 실패: ' + err.message, true);
+    showToast('⚠ 저장 실패: ' + err.message + ' (새로고침 후 확인 필요)', true);
+    // 실패 시 서버 진실로 복원
+    loadData(true).catch(()=>{});
   }finally{
     btn.disabled = false;
     btn.textContent = origText;
   }
 }
 
+// 로컬 캐시에서 행 삭제 + 그 아래 행번호 −1 시프트 (시트 동작 모사)
+function removeFromTaskCache(row){
+  currentTasksCache = currentTasksCache
+    .filter(t => t.row !== row)
+    .map(t => t.row > row ? {...t, row: t.row - 1} : t);
+  buildTasks(currentTasksCache);
+}
+
 async function deleteCurrentTask(){
   if(!editingTaskRow) return;
-  const t = currentTasksCache.find(x => x.row === editingTaskRow);
+  const target = editingTaskRow;
+  const t = currentTasksCache.find(x => x.row === target);
   const taskName = t ? t['업무'] : '이 업무';
   if(!confirm(`'${taskName}'을(를) 삭제하시겠습니까?`)) return;
 
+  closeTaskModal();
+  // 낙관적 제거 (즉시 UI 반영)
+  removeFromTaskCache(target);
+  showToast('✓ 업무가 삭제되었습니다');
+
   try{
-    const res = await fetch(`${API_URL}?action=deleteTask&row=${editingTaskRow}`);
+    const res = await fetch(`${API_URL}?action=deleteTask&row=${target}`);
     const json = await res.json();
     if(!json.ok) throw new Error(json.error || 'error');
-
-    closeTaskModal();
-    await loadData(true);
-    showToast('✓ 업무가 삭제되었습니다');
   }catch(err){
-    showToast('⚠ 삭제 실패: ' + err.message, true);
+    showToast('⚠ 삭제 실패 — 서버 동기화 중', true);
+    loadData(true).catch(()=>{});
   }
 }
 
 async function deleteTaskRow(row, taskName){
   if(!confirm(`'${taskName}'을(를) 삭제하시겠습니까?`)) return;
+  // 낙관적 제거
+  removeFromTaskCache(row);
+  showToast('✓ 업무가 삭제되었습니다');
+
   try{
     const res = await fetch(`${API_URL}?action=deleteTask&row=${row}`);
     const json = await res.json();
     if(!json.ok) throw new Error(json.error || 'error');
-    await loadData(true);
-    showToast('✓ 업무가 삭제되었습니다');
   }catch(err){
-    showToast('⚠ 삭제 실패: ' + err.message, true);
+    showToast('⚠ 삭제 실패 — 서버 동기화 중', true);
+    loadData(true).catch(()=>{});
   }
 }
 
-// ───────── 폴링 (자동 갱신) ─────────
+// ───────── 폴링 (자동 갱신, 해시 기반) ─────────
 const POLL_INTERVAL = 30000;
 let pollTimer = null;
 let pollEnabled = true;
 let lastDataHash = '';
+let lastServerVersion = null;  // 서버가 반환한 v 값. getHash와 비교.
 
 function startPolling(){
   stopPolling();
@@ -1235,10 +1302,27 @@ function startPolling(){
     if(document.hidden) return;                          // 탭 백그라운드면 건너뜀
     if(document.querySelector('.modal.show')) return;    // 모달 열려있으면 건너뜀
     if(editingMemberIdx >= 0 || editingMemberIdx === -2) return;
-    loadData(false).catch(()=>{});
+    checkVersionAndLoad();
   }, POLL_INTERVAL);
   pollEnabled = true;
   updatePollIndicator('idle');
+}
+
+// 가벼운 핑 → 버전 다를 때만 전체 데이터 갱신
+async function checkVersionAndLoad(){
+  try{
+    const res = await fetch(`${API_URL}?action=getHash`);
+    const json = await res.json();
+    if(json.v !== lastServerVersion){
+      // 변경 감지 → 전체 갱신
+      await loadData(false);
+    } else {
+      // 변경 없음 → 아무것도 안 함
+      updatePollIndicator(pollEnabled ? 'idle' : 'paused');
+    }
+  }catch(err){
+    updatePollIndicator('error');
+  }
 }
 
 function stopPolling(){

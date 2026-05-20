@@ -13,14 +13,23 @@
 URL: https://script.google.com/macros/s/AKfycbxpQ2gMHbwXmjfkQFeGCEDDbWL4I4zCwjP6eV7vwjpPPykmKZBslnJGPrSsTyoAtT3L/exec
 
 ### API 액션
-- GET / — schedule, tasks, members, workSchedule, completedTasks 반환
+- GET / — schedule, tasks, members, workSchedule, completedTasks, v 반환
+- GET ?action=getHash — { v: 버전 } 만 반환 (가벼운 변경 감지용 핑)
 - GET ?action=setComplete&row=N&value=true/false — 업무 완료 토글 (F열 완료시각 포함)
 - GET ?action=addTask&name=X&assignee=Y&deadline=YYYY-MM-DD&detail=Z — 업무 추가 (담당표 마지막 행+1에 삽입)
 - GET ?action=updateTask&row=N&name=X&assignee=Y&deadline=YYYY-MM-DD&detail=Z — 업무 수정 (완료/완료시각은 유지)
 - GET ?action=deleteTask&row=N — 업무 삭제
+- GET ?action=addCompletedTask&name=X&assignee=Y&deadline=YYYY-MM-DD&detail=Z&completedAt=YYYY-MM-DDTHH:MM — 완료 업무 수동 추가
 - GET ?action=addMember&name=X&role=Y&color=Z — 멤버 추가
 - GET ?action=updateMember&original=X&name=Y&role=Z&color=W — 멤버 수정 + 담당표/근무일정/완료업무 시트 자동 반영
 - GET ?action=deleteMember&name=X — 멤버 삭제
+
+### 성능 최적화
+- **버전 카운터**: PropertiesService에 'v' 저장. 모든 mutation 액션이 bumpVersion()으로 갱신.
+- **해시 폴링**: 30초마다 getHash로 v만 체크. v 변경 시에만 전체 GET. → 폴링 비용 80% 감소.
+- **낙관적 UI**: 업무 추가/수정/삭제/완료업무 추가 시 즉시 로컬 캐시 갱신. 전체 GET 안 함.
+- **GAS 워밍업**: 모달 열 때 fire-and-forget getHash 호출. 저장 시 콜드 스타트 회피.
+- **preconnect**: <head>에 script.google.com 미리 연결.
 
 ## Google Sheets 구조
 스프레드시트 ID: 1JqEEkUFPM2kVNhesqyEeXePtPhmFy9NIiOe0uga8R2w
