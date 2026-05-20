@@ -396,7 +396,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     <div class="section-header">
       <div>
         <div class="section-title">완료 업무 리스트 <span class="completed-count" id="completedCount" style="display:none">0</span></div>
-        <div class="section-sub">2시간 후 자동 아카이브 · 시트 '완료 업무' 탭</div>
+        <div class="section-sub">30분 후 자동 아카이브 · 시트 '완료 업무' 탭</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
         <button class="add-task-btn" onclick="openTaskModal('completed')" title="이미 완료한 업무를 수동으로 추가">
@@ -520,7 +520,7 @@ const DAYS_EN  = ['Mon','Tue','Wed','Thu','Fri'];
 const DAYS_ALL = ['월','화','수','목','금','토'];
 const API_URL  = 'https://script.google.com/macros/s/AKfycbyXg2Cpi3T2Jtm4sYDv34l93OGzBmYp4r5EivFDc6wyiDb3w7SMG1aB-EQAddwwaZsJ/exec';
 const ANCHOR   = new Date(2026,3,27);
-const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+const THIRTY_MIN_MS = 30 * 60 * 1000;
 
 const COLOR_SLOTS = [
   {key:'ysh',name:'청록'}, {key:'psj',name:'주황'}, {key:'kkh',name:'회색'},
@@ -691,7 +691,7 @@ function buildTasks(tasks){
   tasks = tasks.filter(t => {
     if(!t['완료']) return true;
     if(!t['완료시각']) return false;
-    return (now - t['완료시각']) < TWO_HOURS_MS;
+    return (now - t['완료시각']) < THIRTY_MIN_MS;
   });
 
   if(!tasks.length){root.innerHTML='<div class="empty-state">등록된 업무가 없습니다.</div>';return;}
@@ -780,7 +780,7 @@ async function toggleTask(checkEl, itemEl, row, currentDone){
         itemEl.style.opacity='0';
         setTimeout(()=>itemEl.remove(), 650);
         showToast('완료 항목이 자동 삭제되었습니다');
-      }, TWO_HOURS_MS);
+      }, THIRTY_MIN_MS);
     }else{
       checkEl.classList.remove('checked');
       itemEl.classList.remove('done');
@@ -789,7 +789,7 @@ async function toggleTask(checkEl, itemEl, row, currentDone){
 
     itemEl.dataset.done = newValue?'true':'false';
     checkEl.onclick = () => toggleTask(checkEl, itemEl, row, newValue);
-    showToast(newValue?'✓ 완료 처리 — 2시간 후 자동 삭제':'↩ 완료 취소 · 시각 기록 삭제됨');
+    showToast(newValue?'✓ 완료 처리 — 30분 후 자동 삭제':'↩ 완료 취소 · 시각 기록 삭제됨');
   }catch(err){
     console.error(err);
     checkEl.classList.remove('loading-spin');

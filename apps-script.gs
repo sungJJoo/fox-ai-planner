@@ -429,7 +429,7 @@ function doGet(e) {
     return obj;
   });
 
-  const TWO_HOURS = 2 * 60 * 60 * 1000;
+  const THIRTY_MIN = 30 * 60 * 1000;
   const now       = new Date().getTime();
 
   const tasks = taskValues
@@ -450,7 +450,7 @@ function doGet(e) {
     .filter(task => {
       if (!task['완료']) return true;
       if (!task['완료시각']) return false;
-      return (now - task['완료시각']) < TWO_HOURS;
+      return (now - task['완료시각']) < THIRTY_MIN;
     });
 
   // 완료 업무 아카이브 읽기
@@ -498,7 +498,7 @@ function cleanupCompleted() {
   }
 
   const data      = sheet.getRange(8, 1, last - 7, 6).getValues();
-  const TWO_HOURS = 2 * 60 * 60 * 1000;
+  const THIRTY_MIN = 30 * 60 * 1000;
   const now       = new Date().getTime();
 
   let changed = false;
@@ -506,7 +506,7 @@ function cleanupCompleted() {
     const isDone = data[i][4] === true || data[i][4] === 'TRUE';
     const ts     = (typeof data[i][5] === 'object' && data[i][5] !== null && typeof data[i][5].getTime === 'function')
       ? data[i][5].getTime() : null;
-    if (isDone && ts && (now - ts) > TWO_HOURS) {
+    if (isDone && ts && (now - ts) > THIRTY_MIN) {
       // 아카이브로 복사
       cs.appendRow([data[i][0], data[i][1], data[i][2], data[i][3], data[i][5]]);
       const newRow = cs.getLastRow();
@@ -523,12 +523,13 @@ function cleanupCompleted() {
 }
 
 /**
- * 1시간마다 cleanupCompleted를 실행하는 트리거 설치
+ * 15분마다 cleanupCompleted를 실행하는 트리거 설치
  * → GAS 편집기에서 직접 1회 실행 필요 (편집기 → installTrigger 선택 → 실행)
+ * → 코드 업데이트 후에도 다시 한 번 실행해줘야 새 주기로 적용됨
  */
 function installTrigger() {
   ScriptApp.getProjectTriggers().forEach(t => {
     if (t.getHandlerFunction() === 'cleanupCompleted') ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('cleanupCompleted').timeBased().everyHours(1).create();
+  ScriptApp.newTrigger('cleanupCompleted').timeBased().everyMinutes(15).create();
 }
