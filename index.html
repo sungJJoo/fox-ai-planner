@@ -235,6 +235,35 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="commentOverlay" onclick="closeCommentModal()"></div>
+<div class="modal" id="commentModal">
+  <div class="modal-header">
+    <div>
+      <div class="modal-title" id="commentModalTitle">댓글</div>
+    </div>
+    <button class="modal-close" onclick="closeCommentModal()">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="modal-body" id="commentModalBody">
+    <div class="comment-list" id="commentList"></div>
+    <div class="comment-input-wrap">
+      <div class="field">
+        <label class="field-label">작성자</label>
+        <div class="assignee-picker" id="commentAuthorPicker"></div>
+      </div>
+      <div class="field">
+        <label class="field-label">내용 *</label>
+        <textarea class="field-input" id="commentText" placeholder="댓글 입력..." maxlength="300" rows="3"></textarea>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer" style="justify-content:flex-end;gap:8px;">
+    <button class="modal-btn-close" onclick="closeCommentModal()" style="background:var(--bg);color:var(--sub);">닫기</button>
+    <button class="modal-btn-close" id="commentSaveBtn" onclick="submitComment()">등록</button>
+  </div>
+</div>
+
 <script src="app.js"></script>
 </body>
 </html>

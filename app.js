@@ -25,6 +25,10 @@ let completedCollapsed = true;
 // 반복 업무 상태
 let RECURRING_TASKS = [];
 
+// 댓글 모달 상태
+let currentCommentRow = null;
+let selectedCommentAuthor = null;
+
 function midnight(d){const c=new Date(d);c.setHours(0,0,0,0);return c;}
 function getMonday(d){const c=midnight(d),w=c.getDay();c.setDate(c.getDate()+(w===0?-6:1-w));return c;}
 function addDays(d,n){const c=new Date(d);c.setDate(c.getDate()+n);return c;}
@@ -56,6 +60,27 @@ function buildPerson(membersList){
     };
   });
   return obj;
+}
+
+function getAssigneeList(task){
+  const s = String(task['담당']||'').trim();
+  if(!s) return [];
+  if(s === 'AI 연구원') return MEMBERS_LIST.map(m=>String(m['이름']||'').trim()).filter(Boolean);
+  return s.split(',').map(x=>x.trim()).filter(Boolean);
+}
+
+function parsePersonalComplete(raw){
+  if(!raw) return {};
+  try{ return JSON.parse(raw); }catch(e){ return {}; }
+}
+
+function isPersonDone(personal, name){
+  return !!(personal && personal[name]);
+}
+
+function parseComments(raw){
+  if(!raw) return [];
+  try{ return JSON.parse(raw); }catch(e){ return []; }
 }
 
 function renderMembersBar(){
@@ -194,6 +219,12 @@ function buildTasks(tasks){
     const dl   = parseDate(task['마감기한']);
     const done = !!task['완료'];
     const row  = task['row'];
+    const safeTaskName = (task['업무']||'').replace(/'/g,'').replace(/\\/g,'');
+    const assignees = getAssigneeList(task);
+    const isMulti = assignees.length > 1;
+    const personal = parsePersonalComplete(task['개별완료']);
+    const comments = parseComments(task['댓글']);
+    const commentCount = comments.length;
 
     let state='', badge='';
     if(!done && dl){
@@ -207,29 +238,61 @@ function buildTasks(tasks){
     const el=document.createElement('div');
     el.className=`task-item ${state}`;
     el.dataset.row=row;
-    el.innerHTML=`
-      <div class="task-check ${done?'checked':''}" title="완료 토글">
-        <svg viewBox="0 0 12 12"><polyline points="1.5,6 4.5,9.5 10.5,2.5"/></svg>
-      </div>
-      <div class="task-body">
-        <div class="task-top">
-          <div class="task-name">${task['업무']}${badge}</div>
-          <div class="task-deadline">${dl?fmt(dl):'-'}</div>
-        </div>
-        <div class="task-manager">담당 · ${task['담당']}</div>
-        <div class="task-desc">${task['세부사항']||''}</div>
-      </div>
-      <div class="task-actions">
-        <button class="task-action-btn" title="수정" onclick="event.stopPropagation();openTaskModal(${row})">
-          <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </button>
-        <button class="task-action-btn btn-del" title="삭제" onclick="event.stopPropagation();deleteTaskRow(${row},'${(task['업무']||'').replace(/'/g,'')}')">
-          <svg viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6 l-1,14 a2,2 0 0 1 -2,2 H8 a2,2 0 0 1 -2,-2 L5,6"/><path d="M10 11v6M14 11v6"/></svg>
-        </button>
-      </div>`;
 
-    const checkEl = el.querySelector('.task-check');
-    checkEl.onclick = () => toggleTask(checkEl, el, row, done);
+    const editBtnHtml=`<button class="task-action-btn" title="수정" onclick="event.stopPropagation();openTaskModal(${row})"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`;
+    const delBtnHtml=`<button class="task-action-btn btn-del" title="삭제" onclick="event.stopPropagation();deleteTaskRow(${row},'${safeTaskName}')"><svg viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6 l-1,14 a2,2 0 0 1 -2,2 H8 a2,2 0 0 1 -2,-2 L5,6"/><path d="M10 11v6M14 11v6"/></svg></button>`;
+    const commentBtnHtml=`<button class="task-action-btn${commentCount>0?' has-comments':''}" title="댓글${commentCount>0?' ('+commentCount+')':''}" onclick="event.stopPropagation();openCommentModal(${row},'${safeTaskName}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>${commentCount>0?`<span class="comment-badge">${commentCount}</span>`:''}</button>`;
+
+    if(isMulti){
+      const doneCount = assignees.filter(a=>isPersonDone(personal,a)).length;
+      const allDone   = doneCount === assignees.length;
+      if(allDone) el.classList.add('done');
+
+      const personChecksHtml = assignees.map(name=>{
+        const p = PERSON[name];
+        const cls   = p ? p.cls  : 'kkh';
+        const short = p ? p.short : (name.length>=2?name.slice(-2):name);
+        const pd    = isPersonDone(personal, name);
+        const safeName = name.replace(/'/g,'').replace(/"/g,'');
+        return `<div class="person-check-row${pd?' done':''}" data-person="${name.replace(/"/g,'&quot;')}" onclick="event.stopPropagation();togglePersonalComplete(${row},'${safeName}',${pd})">
+          <div class="person-check-box${pd?' checked':''}"><svg viewBox="0 0 12 12"><polyline points="1.5,6 4.5,9.5 10.5,2.5"/></svg></div>
+          <span class="mini-av av-${cls}">${short}</span>
+          <span class="person-check-name">${name}</span>
+        </div>`;
+      }).join('');
+
+      el.innerHTML=`
+        <div class="task-progress${allDone?' all-done':''}" title="${doneCount}/${assignees.length}명 완료">
+          ${allDone?'<svg viewBox="0 0 12 12"><polyline points="1.5,6 4.5,9.5 10.5,2.5"/></svg>':`<span>${doneCount}<small>/${assignees.length}</small></span>`}
+        </div>
+        <div class="task-body">
+          <div class="task-top">
+            <div class="task-name">${task['업무']}${badge}</div>
+            <div class="task-deadline">${dl?fmt(dl):'-'}</div>
+          </div>
+          <div class="task-person-checks">${personChecksHtml}</div>
+          ${task['세부사항']?`<div class="task-desc">${task['세부사항']}</div>`:''}
+        </div>
+        <div class="task-actions">${commentBtnHtml}${editBtnHtml}${delBtnHtml}</div>`;
+    }else{
+      el.innerHTML=`
+        <div class="task-check ${done?'checked':''}" title="완료 토글">
+          <svg viewBox="0 0 12 12"><polyline points="1.5,6 4.5,9.5 10.5,2.5"/></svg>
+        </div>
+        <div class="task-body">
+          <div class="task-top">
+            <div class="task-name">${task['업무']}${badge}</div>
+            <div class="task-deadline">${dl?fmt(dl):'-'}</div>
+          </div>
+          <div class="task-manager">담당 · ${task['담당']}</div>
+          <div class="task-desc">${task['세부사항']||''}</div>
+        </div>
+        <div class="task-actions">${commentBtnHtml}${editBtnHtml}${delBtnHtml}</div>`;
+
+      const checkEl = el.querySelector('.task-check');
+      checkEl.onclick = () => toggleTask(checkEl, el, row, done);
+    }
+
     root.appendChild(el);
   });
 
@@ -523,7 +586,7 @@ async function deleteMember(idx, name){
 }
 
 document.addEventListener('keydown', e=>{
-  if(e.key==='Escape'){closeOverdueModal();closeSettings();closeTaskModal();}
+  if(e.key==='Escape'){closeOverdueModal();closeSettings();closeTaskModal();closeCommentModal();}
   // 단축키: N → 업무 추가 (입력 필드 포커스 중이면 무시)
   if(e.key==='n' || e.key==='N'){
     const t = e.target;
@@ -926,6 +989,186 @@ async function deleteTaskRow(row, taskName){
   }
 }
 
+// ───────── 개별 완료 체크 (다중 담당자) ─────────
+async function togglePersonalComplete(row, person, currentPersonDone){
+  const newPersonDone = !currentPersonDone;
+
+  // 낙관적 업데이트: 캐시 즉시 반영
+  const taskIdx = currentTasksCache.findIndex(t => t.row === row);
+  if(taskIdx < 0) return;
+
+  const task = currentTasksCache[taskIdx];
+  const personal = parsePersonalComplete(task['개별완료']);
+  personal[person] = newPersonDone ? Date.now() : null;
+  task['개별완료'] = JSON.stringify(personal);
+
+  // 전원 완료 여부 로컬 계산
+  const assignees = getAssigneeList(task);
+  const allDone = assignees.length > 0 && assignees.every(a => personal[a]);
+
+  if(allDone && !task['완료']){
+    task['완료'] = true;
+    task['완료시각'] = Date.now();
+  }else if(!allDone && task['완료']){
+    task['완료'] = false;
+    task['완료시각'] = null;
+    if(taskTimers[row]){ clearTimeout(taskTimers[row]); delete taskTimers[row]; }
+  }
+
+  buildTasks(currentTasksCache);
+
+  // 전원 완료 시 30분 타이머
+  if(allDone){
+    const taskEl = document.querySelector(`.task-item[data-row="${row}"]`);
+    if(taskEl){
+      taskTimers[row] = setTimeout(()=>{
+        taskEl.style.transition='opacity .6s';
+        taskEl.style.opacity='0';
+        setTimeout(()=>taskEl.remove(), 650);
+        showToast('완료 항목이 자동 삭제되었습니다');
+      }, THIRTY_MIN_MS);
+    }
+  }
+
+  showToast(newPersonDone ? `✓ ${person} 완료` : `↩ ${person} 완료 취소`);
+
+  try{
+    const res  = await fetch(`${API_URL}?action=setPersonalComplete&row=${row}&person=${encodeURIComponent(person)}&value=${newPersonDone}`);
+    const json = await res.json();
+    if(!json.ok) throw new Error('error');
+  }catch(err){
+    console.error(err);
+    showToast('⚠ 시트 반영 실패 — Apps Script 재배포 확인', true);
+    loadData(true).catch(()=>{});
+  }
+}
+
+// ───────── 댓글 모달 ─────────
+function openCommentModal(row, taskName){
+  currentCommentRow = row;
+  document.getElementById('commentModalTitle').textContent = `댓글 · ${taskName}`;
+  renderCommentAuthorPicker();
+  renderCommentList();
+  document.getElementById('commentText').value = '';
+  document.getElementById('commentOverlay').classList.add('show');
+  document.getElementById('commentModal').classList.add('show');
+  setTimeout(()=>document.getElementById('commentText').focus(), 100);
+  fetch(`${API_URL}?action=getHash`).catch(()=>{});
+}
+
+function closeCommentModal(){
+  document.getElementById('commentOverlay').classList.remove('show');
+  document.getElementById('commentModal').classList.remove('show');
+  currentCommentRow = null;
+}
+
+function renderCommentAuthorPicker(){
+  const root = document.getElementById('commentAuthorPicker');
+  if(!root) return;
+  root.innerHTML = Object.values(PERSON).map(p=>{
+    const active = selectedCommentAuthor === p.full;
+    const safeName = p.full.replace(/'/g,'').replace(/"/g,'');
+    return `<button type="button" class="pick-chip${active?' active':''}" onclick="selectCommentAuthor('${safeName}')">
+      <span class="mini-av av-${p.cls}">${p.short}</span>${p.full}
+    </button>`;
+  }).join('');
+}
+
+function selectCommentAuthor(name){
+  selectedCommentAuthor = name;
+  renderCommentAuthorPicker();
+}
+
+function renderCommentList(){
+  const root = document.getElementById('commentList');
+  if(!root) return;
+  const task = currentTasksCache.find(t => t.row === currentCommentRow);
+  const comments = task ? parseComments(task['댓글']) : [];
+
+  if(!comments.length){
+    root.innerHTML = '<div class="comment-empty">첫 댓글을 남겨보세요.</div>';
+    return;
+  }
+
+  root.innerHTML = comments.map(c=>{
+    const p = PERSON[c.author];
+    const cls   = p ? p.cls  : 'kkh';
+    const short = p ? p.short : (String(c.author||'').length>=2?String(c.author||'').slice(-2):String(c.author||''));
+    const safeText = String(c.text||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    return `<div class="comment-item">
+      <div class="comment-header">
+        <div class="comment-author-info">
+          <span class="mini-av av-${cls}">${short}</span>
+          <strong>${c.author||'익명'}</strong>
+          <span class="comment-time">${fmtDateTime(c.ts)}</span>
+        </div>
+        <button class="comment-del-btn" title="삭제" onclick="deleteCommentItem(${currentCommentRow},${c.ts})">
+          <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="comment-text">${safeText}</div>
+    </div>`;
+  }).join('');
+}
+
+async function submitComment(){
+  if(!currentCommentRow) return;
+  const author = selectedCommentAuthor || '';
+  const text   = (document.getElementById('commentText').value||'').trim();
+  if(!text){ showToast('댓글 내용을 입력해주세요', true); return; }
+
+  const btn = document.getElementById('commentSaveBtn');
+  btn.disabled = true; btn.textContent = '등록 중...';
+
+  try{
+    const params = new URLSearchParams({ action:'addComment', row:currentCommentRow, author, text });
+    const res  = await fetch(`${API_URL}?${params.toString()}`);
+    const json = await res.json();
+    if(!json.ok) throw new Error(json.error||'error');
+
+    // 캐시 업데이트
+    const taskIdx = currentTasksCache.findIndex(t => t.row === currentCommentRow);
+    if(taskIdx >= 0){
+      const t = currentTasksCache[taskIdx];
+      const cs = parseComments(t['댓글']);
+      cs.push({ author, text, ts: json.ts });
+      t['댓글'] = JSON.stringify(cs);
+    }
+
+    renderCommentList();
+    buildTasks(currentTasksCache);
+    document.getElementById('commentText').value = '';
+    showToast('✓ 댓글이 등록되었습니다');
+  }catch(err){
+    showToast('⚠ 등록 실패: '+err.message, true);
+  }finally{
+    btn.disabled = false; btn.textContent = '등록';
+  }
+}
+
+async function deleteCommentItem(row, ts){
+  if(!confirm('댓글을 삭제하시겠습니까?')) return;
+
+  try{
+    const res  = await fetch(`${API_URL}?action=deleteComment&row=${row}&ts=${ts}`);
+    const json = await res.json();
+    if(!json.ok) throw new Error(json.error||'error');
+
+    const taskIdx = currentTasksCache.findIndex(t => t.row === row);
+    if(taskIdx >= 0){
+      const t = currentTasksCache[taskIdx];
+      const cs = parseComments(t['댓글']).filter(c => c.ts !== ts);
+      t['댓글'] = cs.length ? JSON.stringify(cs) : '';
+    }
+
+    renderCommentList();
+    buildTasks(currentTasksCache);
+    showToast('✓ 댓글이 삭제되었습니다');
+  }catch(err){
+    showToast('⚠ 삭제 실패', true);
+  }
+}
+
 // ───────── 폴링 (자동 갱신, 해시 기반) ─────────
 const POLL_INTERVAL = 30000;
 let pollTimer = null;
@@ -985,7 +1228,7 @@ function updatePollIndicator(state){
 }
 
 function hashTasks(tasks){
-  return tasks.map(t => `${t.row}|${t['업무']}|${t['담당']}|${t['마감기한']}|${t['완료']?1:0}`).join('||');
+  return tasks.map(t => `${t.row}|${t['업무']}|${t['담당']}|${t['마감기한']}|${t['완료']?1:0}|${t['개별완료']||''}|${t['댓글']||''}`).join('||');
 }
 
 // ───────── 브라우저 알림 ─────────

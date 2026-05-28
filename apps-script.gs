@@ -14,8 +14,9 @@
  *
  * 시트 구조:
  *   - 담당표:    A1:F4 = 3주 순환 스케줄 (헤더 + 3주 데이터)
- *                A7:F  = 업무 리스트 (헤더 + 업무행들)
- *                       A=업무, B=담당, C=마감기한, D=세부사항, E=완료(TRUE/FALSE), F=완료시각
+ *                A7:H  = 업무 리스트 (헤더 + 업무행들)
+ *                       A=업무, B=담당, C=마감기한, D=세부사항, E=완료(TRUE/FALSE), F=완료시각,
+ *                       G=개별완료(JSON: {이름:timestamp}), H=댓글(JSON: [{author,text,ts}])
  *   - 멤버:      이름 | 역할 | 색상 (Apps Script가 없으면 자동 생성)
  *   - 근무일정:  날짜행 + 멤버행 반복 (시간/휴무/연차/반차/공휴일)
  *   - 완료 업무: 업무 | 담당 | 마감기한 | 세부사항 | 완료시각 (자동 생성)
@@ -24,6 +25,9 @@
  *   GET /                              → schedule, tasks, members, workSchedule, completedTasks, recurringTasks, v
  *   GET ?action=getHash                → { v } 만 (가벼운 변경 감지 핑)
  *   GET ?action=setComplete&row=N&value=true/false
+ *   GET ?action=setPersonalComplete&row=N&person=name&value=true/false
+ *   GET ?action=addComment&row=N&author=name&text=content
+ *   GET ?action=deleteComment&row=N&ts=timestamp
  *   GET ?action=addTask&name=&assignee=&deadline=&detail=
  *   GET ?action=updateTask&row=N&name=&assignee=&deadline=&detail=
  *   GET ?action=deleteTask&row=N
@@ -143,6 +147,109 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
+  // ── 개별 완료 토글 (다중 담당자) ──
+  if (action === 'setPersonalComplete') {
+    const sheet  = ss.getSheetByName('담당표');
+    const row    = parseInt(e.parameter.row);
+    const person = e.parameter.person || '';
+    const value  = e.parameter.value === 'true';
+
+    if (!person || !row || row < 8) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: false, error: '파라미터 오류' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // G열 개별완료 JSON 업데이트
+    const gCell = sheet.getRange(row, 7);
+    let personal = {};
+    try { personal = JSON.parse(gCell.getValue() || '{}'); } catch(err) { personal = {}; }
+
+    personal[person] = value ? Date.now() : null;
+    gCell.setValue(JSON.stringify(personal));
+
+    // 담당자 목록 확인 → 전원 완료 여부 결정
+    const assigneeStr = String(sheet.getRange(row, 2).getValue() || '').trim();
+    let assignees = [];
+    if (assigneeStr === 'AI 연구원') {
+      const ms = ensureMemberSheet();
+      const mdata = ms.getDataRange().getValues();
+      for (let i = 1; i < mdata.length; i++) {
+        const n = String(mdata[i][0] || '').trim();
+        if (n) assignees.push(n);
+      }
+    } else {
+      assignees = assigneeStr.split(',').map(x => x.trim()).filter(Boolean);
+    }
+
+    const allDone = assignees.length > 0 && assignees.every(a => personal[a]);
+    sheet.getRange(row, 5).setValue(allDone);
+    const tsCell = sheet.getRange(row, 6);
+    if (allDone) {
+      tsCell.setValue(new Date());
+      tsCell.setNumberFormat('yyyy-MM-dd HH:mm:ss');
+    } else {
+      tsCell.clearContent();
+    }
+
+    bumpVersion();
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: true, allDone }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // ── 댓글 추가 ──
+  if (action === 'addComment') {
+    const sheet  = ss.getSheetByName('담당표');
+    const row    = parseInt(e.parameter.row);
+    const author = e.parameter.author || '';
+    const text   = e.parameter.text   || '';
+
+    if (!text || !row || row < 8) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: false, error: '파라미터 오류' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const hCell = sheet.getRange(row, 8);
+    let comments = [];
+    try { comments = JSON.parse(hCell.getValue() || '[]'); } catch(err) { comments = []; }
+
+    const ts = Date.now();
+    comments.push({ author, text, ts });
+    hCell.setValue(JSON.stringify(comments));
+
+    bumpVersion();
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: true, ts }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // ── 댓글 삭제 ──
+  if (action === 'deleteComment') {
+    const sheet = ss.getSheetByName('담당표');
+    const row   = parseInt(e.parameter.row);
+    const ts    = parseInt(e.parameter.ts);
+
+    if (!row || row < 8 || !ts) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: false, error: '파라미터 오류' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const hCell = sheet.getRange(row, 8);
+    let comments = [];
+    try { comments = JSON.parse(hCell.getValue() || '[]'); } catch(err) { comments = []; }
+
+    comments = comments.filter(c => c.ts !== ts);
+    hCell.setValue(comments.length ? JSON.stringify(comments) : '');
+
+    bumpVersion();
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   // ── 업무 추가 ──
   if (action === 'addTask') {
     const sheet = ss.getSheetByName('담당표');
@@ -166,7 +273,7 @@ function doGet(e) {
     const lastRow = sheet.getLastRow();
     const newRow = Math.max(lastRow + 1, 8);
 
-    sheet.getRange(newRow, 1, 1, 6).setValues([[name, assignee, deadlineValue, detail, false, '']]);
+    sheet.getRange(newRow, 1, 1, 8).setValues([[name, assignee, deadlineValue, detail, false, '', '', '']]);
 
     if (deadlineValue) {
       sheet.getRange(newRow, 3).setNumberFormat('yyyy-MM-dd');
@@ -442,6 +549,45 @@ function doGet(e) {
       if (changed) rsheet.getRange(2, 2, rdata.length, 6).setValues(rdata);
     }
 
+    // 6) 담당표 업무행(8행~) B열 담당자 이름 치환 + G열 개별완료 키 + H열 댓글 작성자
+    const taskLastRow = sheet.getLastRow();
+    if (taskLastRow >= 8) {
+      // B열
+      const taskBData = sheet.getRange(8, 2, taskLastRow - 7, 1).getValues();
+      let taskBChanged = false;
+      for (let i = 0; i < taskBData.length; i++) {
+        const cell = String(taskBData[i][0] || '').trim();
+        if (!cell) continue;
+        const newCell = cell.split(',').map(x => x.trim() === original ? name : x.trim()).join(',');
+        if (newCell !== cell) { taskBData[i][0] = newCell; taskBChanged = true; }
+      }
+      if (taskBChanged) sheet.getRange(8, 2, taskLastRow - 7, 1).setValues(taskBData);
+
+      // G열, H열
+      const taskGHData = sheet.getRange(8, 7, taskLastRow - 7, 2).getValues();
+      let taskGHChanged = false;
+      for (let i = 0; i < taskGHData.length; i++) {
+        if (taskGHData[i][0]) {
+          try {
+            const p = JSON.parse(taskGHData[i][0]);
+            if (p.hasOwnProperty(original)) {
+              p[name] = p[original]; delete p[original];
+              taskGHData[i][0] = JSON.stringify(p); taskGHChanged = true;
+            }
+          } catch(err) {}
+        }
+        if (taskGHData[i][1]) {
+          try {
+            const cs = JSON.parse(taskGHData[i][1]);
+            let c2 = false;
+            cs.forEach(c => { if (c.author === original) { c.author = name; c2 = true; } });
+            if (c2) { taskGHData[i][1] = JSON.stringify(cs); taskGHChanged = true; }
+          } catch(err) {}
+        }
+      }
+      if (taskGHChanged) sheet.getRange(8, 7, taskLastRow - 7, 2).setValues(taskGHData);
+    }
+
     bumpVersion();
     return ContentService
       .createTextOutput(JSON.stringify({ ok: true }))
@@ -494,7 +640,7 @@ function doGet(e) {
   };
 
   const scheduleValues = sheet.getRange('A1:F4').getValues();
-  const taskValues     = sheet.getRange('A7:F').getValues().filter(r => r[0]);
+  const taskValues     = sheet.getRange('A7:H').getValues().filter(r => r[0]);
 
   // 근무일정 파싱 (날짜행 + 멤버행 반복 구조)
   const workSheet = ss.getSheetByName('근무일정');
@@ -565,6 +711,8 @@ function doGet(e) {
         세부사항:  row[3],
         완료:      row[4] === true || row[4] === 'TRUE',
         완료시각:  completedAt,
+        개별완료:  String(row[6] || '').trim(),
+        댓글:      String(row[7] || '').trim(),
       };
     })
     .filter(task => {
@@ -639,7 +787,7 @@ function cleanupCompleted() {
     cs.getRange(1, 1, 1, 5).setFontWeight('bold').setBackground('#f0ede8');
   }
 
-  const data      = sheet.getRange(8, 1, last - 7, 6).getValues();
+  const data      = sheet.getRange(8, 1, last - 7, 8).getValues();
   const THIRTY_MIN = 30 * 60 * 1000;
   const now       = new Date().getTime();
 
