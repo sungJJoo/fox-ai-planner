@@ -634,7 +634,11 @@ function doGet(e) {
   const fmtDate = (v) => {
     if (!v && v !== 0) return '';
     if (typeof v === 'object' && v !== null && typeof v.getTime === 'function') {
-      try { return Utilities.formatDate(v, tz, 'M/d'); } catch(e) {}
+      try {
+        const h = v.getHours(), m = v.getMinutes();
+        if (h === 0 && m === 0) return Utilities.formatDate(v, tz, 'M/d');
+        return Utilities.formatDate(v, tz, 'M/d HH:mm');
+      } catch(e) {}
     }
     return String(v).trim();
   };

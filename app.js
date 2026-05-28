@@ -37,13 +37,19 @@ function fmt(d){return `${d.getMonth()+1}/${d.getDate()}`;}
 function fmtFull(d){const w=['일','월','화','수','목','금','토'][d.getDay()];return `${d.getFullYear()}. ${d.getMonth()+1}. ${d.getDate()} (${w})`;}
 function parseDate(v){
   if(!v) return null;
-  if(v instanceof Date) return midnight(v);
+  if(v instanceof Date) return v;
   const s=String(v).trim();
   if(!s||s==='-') return null;
-  if(s.includes('T')||/^\d{4}-/.test(s)){const d=new Date(s);return isNaN(d)?null:midnight(d);}
-  const p=s.split('/');
-  if(p.length===2){const d=new Date(new Date().getFullYear(),+p[0]-1,+p[1]);return isNaN(d)?null:midnight(d);}
-  if(p.length===3){const d=new Date(+p[2],+p[0]-1,+p[1]);return isNaN(d)?null:midnight(d);}
+  if(s.includes('T')||/^\d{4}-/.test(s)){const d=new Date(s);return isNaN(d)?null:d;}
+  // "M/d HH:mm" 또는 "M/d" 형식
+  const sp=s.split(' ');
+  const p=sp[0].split('/');
+  if(p.length===2){
+    const d=new Date(new Date().getFullYear(),+p[0]-1,+p[1]);
+    if(sp[1]){const t=sp[1].split(':');d.setHours(+t[0]||0,+t[1]||0,0,0);}
+    return isNaN(d)?null:d;
+  }
+  if(p.length===3){const d=new Date(+p[2],+p[0]-1,+p[1]);return isNaN(d)?null:d;}
   return null;
 }
 
@@ -268,7 +274,7 @@ function buildTasks(tasks){
         <div class="task-body">
           <div class="task-top">
             <div class="task-name">${task['업무']}${badge}</div>
-            <div class="task-deadline">${dl?fmt(dl):'-'}</div>
+            <div class="task-deadline">${dl?fmtDeadline(dl):'-'}</div>
           </div>
           <div class="task-person-checks">${personChecksHtml}</div>
           ${task['세부사항']?`<div class="task-desc">${task['세부사항']}</div>`:''}
@@ -282,7 +288,7 @@ function buildTasks(tasks){
         <div class="task-body">
           <div class="task-top">
             <div class="task-name">${task['업무']}${badge}</div>
-            <div class="task-deadline">${dl?fmt(dl):'-'}</div>
+            <div class="task-deadline">${dl?fmtDeadline(dl):'-'}</div>
           </div>
           <div class="task-manager">담당 · ${task['담당']}</div>
           <div class="task-desc">${task['세부사항']||''}</div>
@@ -298,6 +304,17 @@ function buildTasks(tasks){
 
   // 마감 임박 알림 발송 (있다면)
   fireDeadlineNotifications(tasks);
+}
+
+function fmtDeadline(d){
+  if(!d) return '-';
+  const h=d.getHours(), m=d.getMinutes();
+  const base=fmt(d);
+  if(h===0 && m===0) return base;
+  const ampm=h<12?'오전':'오후';
+  const h12=(h%12)||12;
+  const mm=m>0?`:${String(m).padStart(2,'0')}`:''
+  return `${base} ${ampm} ${h12}${mm}시`;
 }
 
 function buildCountdownBadge(diff){
@@ -794,18 +811,26 @@ function closeTaskModal(){
 function toDateInputValue(v){
   const d = parseDate(v);
   if(!d) return '';
-  const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,'0');
+  const y  = d.getFullYear();
+  const mo = String(d.getMonth()+1).padStart(2,'0');
   const dd = String(d.getDate()).padStart(2,'0');
-  return `${y}-${m}-${dd}`;
+  const h  = String(d.getHours()).padStart(2,'0');
+  const mi = String(d.getMinutes()).padStart(2,'0');
+  return `${y}-${mo}-${dd}T${h}:${mi}`;
 }
 
-// yyyy-mm-dd → "M/D" (GAS fmtDate 출력 형식과 맞춤)
-function deadlineToShort(yyyymmdd){
-  if(!yyyymmdd) return '';
-  const parts = String(yyyymmdd).split('-');
-  if(parts.length !== 3) return yyyymmdd;
-  return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
+// "yyyy-MM-ddTHH:mm" → "M/d HH:mm" (GAS fmtDate 출력 형식과 맞춤)
+function deadlineToShort(v){
+  if(!v) return '';
+  const s = String(v);
+  const tIdx = s.indexOf('T');
+  const datePart = tIdx >= 0 ? s.slice(0, tIdx) : s;
+  const timePart = tIdx >= 0 ? s.slice(tIdx+1) : '';
+  const dp = datePart.split('-');
+  if(dp.length !== 3) return v;
+  const base = `${parseInt(dp[1])}/${parseInt(dp[2])}`;
+  if(timePart && timePart !== '00:00') return `${base} ${timePart}`;
+  return base;
 }
 
 async function saveTask(){
