@@ -28,6 +28,9 @@ URL: https://script.google.com/macros/s/AKfycbxpQ2gMHbwXmjfkQFeGCEDDbWL4I4zCwjP6
 - GET / — schedule, tasks, members, workSchedule, completedTasks, recurringTasks, v 반환
 - GET ?action=getHash — { v: 버전 } 만 반환 (가벼운 변경 감지용 핑)
 - GET ?action=setComplete&row=N&value=true/false — 업무 완료 토글 (F열 완료시각 포함)
+- GET ?action=setPersonalComplete&row=N&person=name&value=true/false — 개별 완료 토글 (G열 JSON 업데이트, 전원 완료 시 E/F열 자동 처리)
+- GET ?action=addComment&row=N&author=name&text=content — 댓글 추가 (H열 JSON 배열에 push)
+- GET ?action=deleteComment&row=N&ts=timestamp — 댓글 삭제 (ts로 특정)
 - GET ?action=addTask&name=X&assignee=Y&deadline=YYYY-MM-DD&detail=Z — 업무 추가 (담당표 마지막 행+1에 삽입)
 - GET ?action=updateTask&row=N&name=X&assignee=Y&deadline=YYYY-MM-DD&detail=Z — 업무 수정 (완료/완료시각은 유지)
 - GET ?action=deleteTask&row=N — 업무 삭제
@@ -58,9 +61,11 @@ URL: https://script.google.com/macros/s/AKfycbxpQ2gMHbwXmjfkQFeGCEDDbWL4I4zCwjP6
 
 ### 담당표 탭
 - A1:F4 — 3주 순환 스케줄 (헤더: 주차|월|화|수|목|금)
-- A7:F — 업무 리스트 (헤더: AI연구소 업무|담당|마감기한|세부사항|완료|완료시각)
+- A7:H — 업무 리스트 (헤더: AI연구소 업무|담당|마감기한|세부사항|완료|완료시각|개별완료|댓글)
   - E열: 완료 (TRUE/FALSE)
   - F열: 완료시각 (yyyy-MM-dd HH:mm:ss 형식)
+  - G열: 개별완료 JSON — `{"이름":timestamp, ...}` (담당자 2명 이상 or AI 연구원일 때 사용)
+  - H열: 댓글 JSON — `[{"author":"이름","text":"내용","ts":timestamp}]`
 
 ### 근무일정 탭
 - 날짜행: A열 비어있음, B~G열에 M/D 형식 날짜

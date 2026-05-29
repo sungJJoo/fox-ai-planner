@@ -45,8 +45,11 @@ function parseDate(v){
   const sp=s.split(' ');
   const p=sp[0].split('/');
   if(p.length===2){
-    const d=new Date(new Date().getFullYear(),+p[0]-1,+p[1]);
+    const year=new Date().getFullYear();
+    const d=new Date(year,+p[0]-1,+p[1]);
     if(sp[1]){const t=sp[1].split(':');d.setHours(+t[0]||0,+t[1]||0,0,0);}
+    // 6개월 이상 미래면 작년으로 보정 (연말 마감기한을 새해에 볼 때 D+364 오류 방지)
+    if(d-new Date()>180*86400000) d.setFullYear(year-1);
     return isNaN(d)?null:d;
   }
   if(p.length===3){const d=new Date(+p[2],+p[0]-1,+p[1]);return isNaN(d)?null:d;}
@@ -300,6 +303,20 @@ function buildTasks(tasks){
     }
 
     root.appendChild(el);
+
+    // 완료 업무: 재렌더 시 남은 시간만큼 타이머 복원 (폴링 재렌더 후 고아 타이머 방지)
+    if(done && task['완료시각']){
+      if(taskTimers[row]) clearTimeout(taskTimers[row]);
+      const remaining = THIRTY_MIN_MS - (now - task['완료시각']);
+      if(remaining > 0){
+        taskTimers[row] = setTimeout(()=>{
+          el.style.transition='opacity .6s';
+          el.style.opacity='0';
+          setTimeout(()=>el.remove(), 650);
+          showToast('완료 항목이 자동 삭제되었습니다');
+        }, remaining);
+      }
+    }
   });
 
   // 마감 임박 알림 발송 (있다면)
@@ -335,6 +352,12 @@ async function toggleTask(checkEl, itemEl, row, currentDone){
     const res  = await fetch(`${API_URL}?action=setComplete&row=${row}&value=${newValue}`);
     const json = await res.json();
     if(!json.ok) throw new Error('error');
+
+    const taskIdx = currentTasksCache.findIndex(t => t.row === row);
+    if(taskIdx >= 0){
+      currentTasksCache[taskIdx]['완료'] = newValue;
+      currentTasksCache[taskIdx]['완료시각'] = newValue ? Date.now() : null;
+    }
 
     checkEl.classList.remove('loading-spin');
     checkEl.style.pointerEvents='';
