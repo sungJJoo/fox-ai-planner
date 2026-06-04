@@ -1094,6 +1094,7 @@ async function togglePersonalComplete(row, person, currentPersonDone){
 // ───────── 댓글 모달 ─────────
 function openCommentModal(row, taskName){
   currentCommentRow = row;
+  selectedCommentAuthor = null;   // 작성자 매번 새로 선택하도록 초기화
   document.getElementById('commentModalTitle').textContent = `댓글 · ${taskName}`;
   renderCommentAuthorPicker();
   renderCommentList();
@@ -1147,7 +1148,7 @@ function renderCommentList(){
       <div class="comment-header">
         <div class="comment-author-info">
           <span class="mini-av av-${cls}">${short}</span>
-          <strong>${c.author||'익명'}</strong>
+          <strong>${c.author||''}</strong>
           <span class="comment-time">${fmtDateTime(c.ts)}</span>
         </div>
         <button class="comment-del-btn" title="삭제" onclick="deleteCommentItem(${currentCommentRow},${c.ts})">
@@ -1163,6 +1164,7 @@ async function submitComment(){
   if(!currentCommentRow) return;
   const author = selectedCommentAuthor || '';
   const text   = (document.getElementById('commentText').value||'').trim();
+  if(!author){ showToast('작성자를 선택해주세요', true); return; }
   if(!text){ showToast('댓글 내용을 입력해주세요', true); return; }
 
   const btn = document.getElementById('commentSaveBtn');

@@ -26,7 +26,7 @@
  *   GET ?action=getHash                → { v } 만 (가벼운 변경 감지 핑)
  *   GET ?action=setComplete&row=N&value=true/false
  *   GET ?action=setPersonalComplete&row=N&person=name&value=true/false
- *   GET ?action=addComment&row=N&author=name&text=content
+ *   GET ?action=addComment&row=N&author=name&text=content  (author 필수 — 익명 불가)
  *   GET ?action=deleteComment&row=N&ts=timestamp
  *   GET ?action=addTask&name=&assignee=&deadline=&detail=
  *   GET ?action=updateTask&row=N&name=&assignee=&deadline=&detail=
@@ -205,9 +205,9 @@ function doGet(e) {
     const author = e.parameter.author || '';
     const text   = e.parameter.text   || '';
 
-    if (!text || !row || row < 8) {
+    if (!text || !author || !row || row < 8) {
       return ContentService
-        .createTextOutput(JSON.stringify({ ok: false, error: '파라미터 오류' }))
+        .createTextOutput(JSON.stringify({ ok: false, error: '작성자/내용 누락' }))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
