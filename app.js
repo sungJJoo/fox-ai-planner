@@ -1455,12 +1455,22 @@ async function saveEvent(){
   if(end && end < start){ showToast('종료일이 시작일보다 빠릅니다', true); return; }
   if(!end) end = start;
 
-  const btn = document.getElementById('eventSaveBtn');
-  btn.disabled = true; const origText = btn.textContent; btn.textContent = '저장 중...';
-
   const eRow = editingEventRow;
   closeEventEditor();
 
+  // 🚀 낙관적 UI — 서버 응답 기다리지 않고 즉시 화면 반영
+  let tempObj = null;
+  if(eRow){
+    const idx = CALENDAR_EVENTS.findIndex(x => x.row === eRow);
+    if(idx >= 0) CALENDAR_EVENTS[idx] = { row:eRow, start, end, title, type, memo };
+  } else {
+    tempObj = { row:-Date.now(), start, end, title, type, memo };  // 임시 행번호
+    CALENDAR_EVENTS.push(tempObj);
+  }
+  renderMonthGrid();
+  showToast(eRow ? '✓ 일정이 수정되었습니다' : '✓ 일정이 추가되었습니다');
+
+  // 서버는 뒤에서 처리
   try{
     const params = new URLSearchParams({
       action: eRow ? 'updateCalendarEvent' : 'addCalendarEvent',
@@ -1472,20 +1482,14 @@ async function saveEvent(){
     const json = await res.json();
     if(!json.ok) throw new Error(json.error || 'error');
 
-    // 낙관적 UI
-    if(eRow){
-      const idx = CALENDAR_EVENTS.findIndex(x => x.row === eRow);
-      if(idx >= 0) CALENDAR_EVENTS[idx] = { row:eRow, start, end, title, type, memo };
-    } else {
-      CALENDAR_EVENTS.push({ row:json.row, start, end, title, type, memo });
+    // 추가였으면 임시 행번호를 실제 행번호로 교체 후 다시 렌더 (즉시)
+    if(!eRow && tempObj){
+      tempObj.row = json.row;
+      renderMonthGrid();
     }
-    renderMonthGrid();
-    showToast(eRow ? '✓ 일정이 수정되었습니다' : '✓ 일정이 추가되었습니다');
   }catch(err){
-    showToast('⚠ 저장 실패: ' + err.message, true);
+    showToast('⚠ 저장 실패 — 새로고침 후 확인', true);
     loadData(true).catch(()=>{});
-  }finally{
-    btn.disabled = false; btn.textContent = origText;
   }
 }
 
