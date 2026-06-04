@@ -35,6 +35,9 @@
  *   GET ?action=addRecurringTask&name=&mon=&tue=&wed=&thu=&fri=&sat=&detail=
  *   GET ?action=updateRecurringTask&row=N&name=&mon=&tue=&wed=&thu=&fri=&sat=&detail=
  *   GET ?action=deleteRecurringTask&row=N
+ *   GET ?action=addCalendarEvent&start=YYYY-MM-DD&end=YYYY-MM-DD&title=&type=공휴일/행사/계획&memo=
+ *   GET ?action=updateCalendarEvent&row=N&start=&end=&title=&type=&memo=
+ *   GET ?action=deleteCalendarEvent&row=N
  *   GET ?action=addMember&name=&role=&color=
  *   GET ?action=updateMember&original=&name=&role=&color=
  *   GET ?action=deleteMember&name=
@@ -124,6 +127,24 @@ function doGet(e) {
       rs.setColumnWidth(8, 220);
     }
     return rs;
+  }
+
+  // ── 캘린더 시트 자동 생성 (연간 일정/행사/공휴일) ──
+  function ensureCalendarSheet() {
+    let cs = ss.getSheetByName('캘린더');
+    if (!cs) {
+      cs = ss.insertSheet('캘린더');
+      cs.getRange(1, 1, 1, 5).setValues([
+        ['시작일', '종료일', '제목', '유형', '메모']
+      ]);
+      cs.getRange(1, 1, 1, 5).setFontWeight('bold').setBackground('#f0ede8');
+      cs.setColumnWidth(1, 110);
+      cs.setColumnWidth(2, 110);
+      cs.setColumnWidth(3, 220);
+      cs.setColumnWidth(4, 80);
+      cs.setColumnWidth(5, 280);
+    }
+    return cs;
   }
 
   // ── 완료 토글 ──
@@ -446,6 +467,73 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
+  // ── 캘린더 일정 추가 ──
+  if (action === 'addCalendarEvent') {
+    const cs = ensureCalendarSheet();
+    const start = e.parameter.start || '';
+    const end   = e.parameter.end   || '';
+    const title = e.parameter.title || '';
+    const type  = e.parameter.type  || '계획';
+    const memo  = e.parameter.memo  || '';
+
+    if (!start || !title) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: false, error: '날짜/제목 누락' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 날짜는 문자열(yyyy-MM-dd)로 그대로 저장 (자동 Date 변환 방지 위해 앞에 '를 안 붙이고 plain text)
+    cs.appendRow([start, end || start, title, type, memo]);
+    const newRow = cs.getLastRow();
+    cs.getRange(newRow, 1, 1, 2).setNumberFormat('@');  // 텍스트 형식 고정
+
+    bumpVersion();
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: true, row: newRow }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // ── 캘린더 일정 수정 ──
+  if (action === 'updateCalendarEvent') {
+    const cs = ensureCalendarSheet();
+    const row   = parseInt(e.parameter.row);
+    const start = e.parameter.start || '';
+    const end   = e.parameter.end   || '';
+    const title = e.parameter.title || '';
+    const type  = e.parameter.type  || '계획';
+    const memo  = e.parameter.memo  || '';
+
+    if (!row || row < 2 || !start || !title) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: false, error: '파라미터 오류' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    cs.getRange(row, 1, 1, 5).setValues([[start, end || start, title, type, memo]]);
+    cs.getRange(row, 1, 1, 2).setNumberFormat('@');
+
+    bumpVersion();
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // ── 캘린더 일정 삭제 ──
+  if (action === 'deleteCalendarEvent') {
+    const cs = ensureCalendarSheet();
+    const row = parseInt(e.parameter.row);
+    if (!row || row < 2) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: false, error: '행 번호 오류' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    cs.deleteRow(row);
+    bumpVersion();
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   // ── 멤버 추가 ──
   if (action === 'addMember') {
     const ms    = ensureMemberSheet();
@@ -621,6 +709,7 @@ function doGet(e) {
   const memberSheet = ensureMemberSheet();
   ensureCompletedSheet();
   ensureRecurringSheet();
+  ensureCalendarSheet();
 
   // 멤버 리스트
   const memRaw = memberSheet.getDataRange().getValues();
@@ -767,8 +856,27 @@ function doGet(e) {
       .filter(t => t['업무']);
   }
 
+  // 캘린더 일정 읽기
+  const calendarSheet = ss.getSheetByName('캘린더');
+  let calendarEvents = [];
+  if (calendarSheet && calendarSheet.getLastRow() > 1) {
+    const calRaw = calendarSheet
+      .getRange(2, 1, calendarSheet.getLastRow() - 1, 5)
+      .getDisplayValues();  // 날짜를 화면 표시값(텍스트)으로 읽음
+    calendarEvents = calRaw
+      .map((row, idx) => ({
+        row:    idx + 2,
+        start:  String(row[0] || '').trim(),
+        end:    String(row[1] || '').trim() || String(row[0] || '').trim(),
+        title:  String(row[2] || '').trim(),
+        type:   String(row[3] || '').trim() || '계획',
+        memo:   String(row[4] || '').trim(),
+      }))
+      .filter(ev => ev.start && ev.title);
+  }
+
   return ContentService
-    .createTextOutput(JSON.stringify({ members, schedule, tasks, workSchedule, completedTasks, recurringTasks, v: currentVersion() }))
+    .createTextOutput(JSON.stringify({ members, schedule, tasks, workSchedule, completedTasks, recurringTasks, calendarEvents, v: currentVersion() }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 

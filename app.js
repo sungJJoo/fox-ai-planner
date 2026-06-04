@@ -29,6 +29,57 @@ let RECURRING_TASKS = [];
 let currentCommentRow = null;
 let selectedCommentAuthor = null;
 
+// 캘린더 상태
+let CALENDAR_EVENTS = [];                 // 시트에서 온 사용자 일정
+let calViewYear  = new Date().getFullYear();
+let calViewMonth = new Date().getMonth(); // 0~11
+let editingEventRow = null;               // null=추가, 숫자=수정
+let selectedEventType = '계획';
+
+// 2026~2027 대한민국 공휴일 (코드 내장, 읽기 전용)
+// 음력·대체공휴일은 공식 월력요항 기준
+const HOLIDAYS = {
+  // 2026
+  '2026-01-01':'신정',
+  '2026-02-16':'설날 연휴','2026-02-17':'설날','2026-02-18':'설날 연휴',
+  '2026-03-01':'삼일절','2026-03-02':'대체공휴일',
+  '2026-05-05':'어린이날',
+  '2026-05-24':'부처님오신날','2026-05-25':'대체공휴일',
+  '2026-06-06':'현충일',
+  '2026-08-15':'광복절','2026-08-17':'대체공휴일',
+  '2026-09-24':'추석 연휴','2026-09-25':'추석','2026-09-26':'추석 연휴',
+  '2026-10-03':'개천절','2026-10-05':'대체공휴일',
+  '2026-10-09':'한글날',
+  '2026-12-25':'성탄절',
+  // 2027
+  '2027-01-01':'신정',
+  '2027-02-06':'설날 연휴','2027-02-07':'설날','2027-02-08':'설날 연휴','2027-02-09':'대체공휴일',
+  '2027-03-01':'삼일절',
+  '2027-05-05':'어린이날',
+  '2027-05-13':'부처님오신날',
+  '2027-06-06':'현충일',
+  '2027-08-15':'광복절','2027-08-16':'대체공휴일',
+  '2027-09-14':'추석 연휴','2027-09-15':'추석','2027-09-16':'추석 연휴',
+  '2027-10-03':'개천절','2027-10-04':'대체공휴일',
+  '2027-10-09':'한글날','2027-10-11':'대체공휴일',
+  '2027-12-25':'성탄절','2027-12-27':'대체공휴일',
+};
+
+// yyyy-MM-dd 키 생성
+function ymd(y, m, d){
+  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+function ymdFromDate(dt){
+  return ymd(dt.getFullYear(), dt.getMonth(), dt.getDate());
+}
+// "yyyy-MM-dd" → Date (로컬 자정)
+function ymdToDate(s){
+  const p = String(s).split('-');
+  if(p.length !== 3) return null;
+  const d = new Date(+p[0], +p[1]-1, +p[2]);
+  return isNaN(d) ? null : d;
+}
+
 function midnight(d){const c=new Date(d);c.setHours(0,0,0,0);return c;}
 function getMonday(d){const c=midnight(d),w=c.getDay();c.setDate(c.getDate()+(w===0?-6:1-w));return c;}
 function addDays(d,n){const c=new Date(d);c.setDate(c.getDate()+n);return c;}
@@ -126,7 +177,8 @@ async function loadData(force){
     const tasks         = data.tasks || [];
     const completedList = data.completedTasks || [];
     const recurringList = data.recurringTasks || [];
-    const newHash       = hashTasks(tasks) + '|' + (data.workSchedule||[]).length + '|' + completedList.length + '|' + hashTasks(recurringList);
+    const calendarList  = data.calendarEvents || [];
+    const newHash       = hashTasks(tasks) + '|' + (data.workSchedule||[]).length + '|' + completedList.length + '|' + hashTasks(recurringList) + '|cal' + calendarList.length + calendarList.map(e=>e.row+e.start+e.end+e.title+e.type).join(',');
 
     // 폴링이고 변경 없으면 렌더 스킵
     if(!force && newHash === lastDataHash){
@@ -136,12 +188,17 @@ async function loadData(force){
     lastDataHash = newHash;
 
     currentTasksCache = tasks;
+    CALENDAR_EVENTS = calendarList;
     renderMembersBar();
     buildCalendar(data.schedule||[]);
     buildTasks(tasks);
     buildRecurring(recurringList);
     buildCompleted(completedList);
     buildWork(data.workSchedule||[]);
+    // 캘린더 모달이 열려있으면 다시 렌더
+    if(document.getElementById('calendarModal').classList.contains('show')){
+      renderMonthGrid();
+    }
     updatePollIndicator(pollEnabled ? 'idle' : 'paused');
   }catch(err){
     console.error(err);
@@ -626,7 +683,7 @@ async function deleteMember(idx, name){
 }
 
 document.addEventListener('keydown', e=>{
-  if(e.key==='Escape'){closeOverdueModal();closeSettings();closeTaskModal();closeCommentModal();}
+  if(e.key==='Escape'){closeOverdueModal();closeSettings();closeTaskModal();closeCommentModal();closeEventEditor();closeCalendarModal();}
   // 단축키: N → 업무 추가 (입력 필드 포커스 중이면 무시)
   if(e.key==='n' || e.key==='N'){
     const t = e.target;
@@ -1216,6 +1273,242 @@ async function deleteCommentItem(row, ts){
     showToast('✓ 댓글이 삭제되었습니다');
   }catch(err){
     showToast('⚠ 삭제 실패', true);
+  }
+}
+
+// ───────── 연간 캘린더 ─────────
+const CAL_TYPES = [
+  { key:'공휴일', cls:'holiday' },
+  { key:'행사',   cls:'event'   },
+  { key:'계획',   cls:'plan'    },
+];
+
+function openCalendarModal(){
+  const now = new Date();
+  calViewYear  = now.getFullYear();
+  calViewMonth = now.getMonth();
+  // 2026~2027 범위 밖이면 2026으로 보정
+  if(calViewYear < 2026){ calViewYear = 2026; calViewMonth = 0; }
+  if(calViewYear > 2027){ calViewYear = 2027; calViewMonth = 11; }
+  renderMonthGrid();
+  document.getElementById('calendarOverlay').classList.add('show');
+  document.getElementById('calendarModal').classList.add('show');
+  fetch(`${API_URL}?action=getHash`).catch(()=>{});
+}
+
+function closeCalendarModal(){
+  document.getElementById('calendarOverlay').classList.remove('show');
+  document.getElementById('calendarModal').classList.remove('show');
+}
+
+function calendarPrevMonth(){
+  calViewMonth--;
+  if(calViewMonth < 0){ calViewMonth = 11; calViewYear--; }
+  renderMonthGrid();
+}
+function calendarNextMonth(){
+  calViewMonth++;
+  if(calViewMonth > 11){ calViewMonth = 0; calViewYear++; }
+  renderMonthGrid();
+}
+function calendarGoToday(){
+  const now = new Date();
+  calViewYear  = now.getFullYear();
+  calViewMonth = now.getMonth();
+  renderMonthGrid();
+}
+
+// 특정 날짜(yyyy-MM-dd)에 걸치는 모든 일정 반환 (공휴일 + 사용자 일정)
+function eventsOnDate(dateKey){
+  const list = [];
+  // 공휴일
+  if(HOLIDAYS[dateKey]){
+    list.push({ holiday:true, title:HOLIDAYS[dateKey], type:'공휴일' });
+  }
+  // 사용자 일정 (기간 포함)
+  CALENDAR_EVENTS.forEach(ev => {
+    if(dateKey >= ev.start && dateKey <= (ev.end || ev.start)){
+      list.push({ ...ev, holiday:false });
+    }
+  });
+  return list;
+}
+
+function typeCls(type){
+  const t = CAL_TYPES.find(x => x.key === type);
+  return t ? t.cls : 'plan';
+}
+
+function renderMonthGrid(){
+  const title = document.getElementById('calendarNavTitle');
+  title.textContent = `${calViewYear}년 ${calViewMonth+1}월`;
+
+  const grid = document.getElementById('monthGrid');
+  const todayKey = ymdFromDate(new Date());
+
+  // 요일 헤더
+  const dayNames = ['일','월','화','수','목','금','토'];
+  let html = '<div class="mg-head">' +
+    dayNames.map((d,i)=>`<div class="mg-head-cell ${i===0?'sun':''} ${i===6?'sat':''}">${d}</div>`).join('') +
+    '</div><div class="mg-body">';
+
+  const first = new Date(calViewYear, calViewMonth, 1);
+  const startWeekday = first.getDay();              // 0=일
+  const daysInMonth = new Date(calViewYear, calViewMonth+1, 0).getDate();
+  const totalCells = Math.ceil((startWeekday + daysInMonth) / 7) * 7;
+
+  for(let i=0; i<totalCells; i++){
+    const dayNum = i - startWeekday + 1;
+    if(dayNum < 1 || dayNum > daysInMonth){
+      html += '<div class="mg-cell mg-empty"></div>';
+      continue;
+    }
+    const dateKey = ymd(calViewYear, calViewMonth, dayNum);
+    const weekday = (startWeekday + dayNum - 1) % 7;
+    const isToday = dateKey === todayKey;
+    const isHoliday = !!HOLIDAYS[dateKey];
+    const isSun = weekday === 0 || isHoliday;
+    const isSat = weekday === 6;
+
+    const evs = eventsOnDate(dateKey);
+    const chips = evs.slice(0,4).map(ev => {
+      const cls = typeCls(ev.type);
+      if(ev.holiday){
+        return `<div class="mg-chip mg-chip-holiday" title="${ev.title}">${ev.title}</div>`;
+      }
+      const safeTitle = String(ev.title||'').replace(/"/g,'&quot;');
+      return `<div class="mg-chip mg-chip-${cls}" title="${safeTitle}${ev.memo?' — '+String(ev.memo).replace(/"/g,'&quot;'):''}" onclick="event.stopPropagation();openEventEditor(${ev.row})">${ev.title}</div>`;
+    }).join('');
+    const moreCount = evs.length > 4 ? `<div class="mg-more">+${evs.length-4}</div>` : '';
+
+    html += `<div class="mg-cell ${isToday?'mg-today':''}" onclick="openEventEditor(null,'${dateKey}')">
+      <div class="mg-date ${isSun?'sun':''} ${isSat?'sat':''}">${dayNum}</div>
+      <div class="mg-chips">${chips}${moreCount}</div>
+    </div>`;
+  }
+  html += '</div>';
+  grid.innerHTML = html;
+
+  // 네비게이션 버튼 한계 (2026-01 ~ 2027-12)
+  const atStart = (calViewYear === 2026 && calViewMonth === 0);
+  const atEnd   = (calViewYear === 2027 && calViewMonth === 11);
+  document.querySelectorAll('.cal-nav-btn')[0].style.opacity = atStart ? .3 : 1;
+  document.querySelectorAll('.cal-nav-btn')[1].style.opacity = atEnd ? .3 : 1;
+}
+
+// ── 일정 추가/수정 서브 모달 ──
+function renderEventTypePicker(){
+  const root = document.getElementById('eventTypePicker');
+  root.innerHTML = CAL_TYPES.map(t => {
+    const active = selectedEventType === t.key;
+    return `<button type="button" class="pick-chip cal-type-chip cal-type-${t.cls}${active?' active':''}" onclick="selectEventType('${t.key}')">${t.key}</button>`;
+  }).join('');
+}
+function selectEventType(key){
+  selectedEventType = key;
+  renderEventTypePicker();
+}
+
+function openEventEditor(row, prefillDate){
+  editingEventRow = (typeof row === 'number') ? row : null;
+
+  if(editingEventRow){
+    const ev = CALENDAR_EVENTS.find(x => x.row === editingEventRow);
+    document.getElementById('eventModalTitle').textContent = '일정 수정';
+    document.getElementById('eventTitle').value = ev ? ev.title : '';
+    document.getElementById('eventStart').value = ev ? ev.start : '';
+    document.getElementById('eventEnd').value   = ev ? (ev.end && ev.end !== ev.start ? ev.end : '') : '';
+    document.getElementById('eventMemo').value  = ev ? ev.memo : '';
+    selectedEventType = ev ? ev.type : '계획';
+    document.getElementById('eventDeleteBtn').style.display = 'inline-flex';
+  } else {
+    document.getElementById('eventModalTitle').textContent = '일정 추가';
+    document.getElementById('eventTitle').value = '';
+    document.getElementById('eventStart').value = prefillDate || ymdFromDate(new Date());
+    document.getElementById('eventEnd').value   = '';
+    document.getElementById('eventMemo').value  = '';
+    selectedEventType = '계획';
+    document.getElementById('eventDeleteBtn').style.display = 'none';
+  }
+  renderEventTypePicker();
+
+  document.getElementById('eventOverlay').classList.add('show');
+  document.getElementById('eventModal').classList.add('show');
+  setTimeout(()=>document.getElementById('eventTitle').focus(), 100);
+}
+
+function closeEventEditor(){
+  document.getElementById('eventOverlay').classList.remove('show');
+  document.getElementById('eventModal').classList.remove('show');
+  editingEventRow = null;
+}
+
+async function saveEvent(){
+  const title = document.getElementById('eventTitle').value.trim();
+  const start = document.getElementById('eventStart').value.trim();
+  let   end   = document.getElementById('eventEnd').value.trim();
+  const memo  = document.getElementById('eventMemo').value.trim();
+  const type  = selectedEventType;
+
+  if(!title){ showToast('제목을 입력해주세요', true); return; }
+  if(!start){ showToast('시작일을 선택해주세요', true); return; }
+  if(end && end < start){ showToast('종료일이 시작일보다 빠릅니다', true); return; }
+  if(!end) end = start;
+
+  const btn = document.getElementById('eventSaveBtn');
+  btn.disabled = true; const origText = btn.textContent; btn.textContent = '저장 중...';
+
+  const eRow = editingEventRow;
+  closeEventEditor();
+
+  try{
+    const params = new URLSearchParams({
+      action: eRow ? 'updateCalendarEvent' : 'addCalendarEvent',
+      start, end, title, type, memo,
+    });
+    if(eRow) params.set('row', eRow);
+
+    const res  = await fetch(`${API_URL}?${params.toString()}`);
+    const json = await res.json();
+    if(!json.ok) throw new Error(json.error || 'error');
+
+    // 낙관적 UI
+    if(eRow){
+      const idx = CALENDAR_EVENTS.findIndex(x => x.row === eRow);
+      if(idx >= 0) CALENDAR_EVENTS[idx] = { row:eRow, start, end, title, type, memo };
+    } else {
+      CALENDAR_EVENTS.push({ row:json.row, start, end, title, type, memo });
+    }
+    renderMonthGrid();
+    showToast(eRow ? '✓ 일정이 수정되었습니다' : '✓ 일정이 추가되었습니다');
+  }catch(err){
+    showToast('⚠ 저장 실패: ' + err.message, true);
+    loadData(true).catch(()=>{});
+  }finally{
+    btn.disabled = false; btn.textContent = origText;
+  }
+}
+
+async function deleteCurrentEvent(){
+  if(!editingEventRow) return;
+  const target = editingEventRow;
+  const ev = CALENDAR_EVENTS.find(x => x.row === target);
+  if(!confirm(`'${ev ? ev.title : '이 일정'}'을(를) 삭제하시겠습니까?`)) return;
+
+  closeEventEditor();
+  CALENDAR_EVENTS = CALENDAR_EVENTS
+    .filter(x => x.row !== target)
+    .map(x => x.row > target ? {...x, row:x.row-1} : x);
+  renderMonthGrid();
+  showToast('✓ 일정이 삭제되었습니다');
+
+  try{
+    const res = await fetch(`${API_URL}?action=deleteCalendarEvent&row=${target}`);
+    const json = await res.json();
+    if(!json.ok) throw new Error(json.error || 'error');
+  }catch(err){
+    showToast('⚠ 삭제 실패 — 서버 동기화 중', true);
+    loadData(true).catch(()=>{});
   }
 }
 

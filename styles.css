@@ -604,7 +604,72 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .comment-text{font-size:13px;color:var(--text);line-height:1.5;word-break:break-word;}
 .comment-input-wrap{border-top:1px solid var(--border);padding-top:12px;display:flex;flex-direction:column;gap:8px;}
 
+/* ───────── 연간 캘린더 ───────── */
+.modal-calendar{width:min(880px,96vw);max-height:92vh;}
+.cal-nav{display:flex;align-items:center;gap:8px;}
+.cal-nav-btn{width:32px;height:32px;border-radius:9px;border:1px solid var(--border);background:var(--card);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s;}
+.cal-nav-btn:hover{background:var(--head-bg);}
+.cal-nav-btn svg{width:16px;height:16px;fill:none;stroke:var(--text);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+.cal-nav-title{font-size:18px;font-weight:800;min-width:120px;text-align:center;}
+.cal-today-btn{font-family:inherit;font-size:12px;font-weight:700;color:var(--sub);background:var(--card);border:1px solid var(--border);border-radius:999px;padding:6px 13px;cursor:pointer;transition:background .15s;margin-left:4px;}
+.cal-today-btn:hover{background:var(--head-bg);}
+
+.cal-legend{display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-wrap:wrap;}
+.cal-legend-item{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--sub);}
+.cal-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+.cal-dot-holiday{background:#dc2626;}
+.cal-dot-event{background:#2563eb;}
+.cal-dot-plan{background:#16a34a;}
+.cal-add-btn{margin-left:auto;}
+
+.month-grid{border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+.mg-head{display:grid;grid-template-columns:repeat(7,1fr);background:var(--head-bg);}
+.mg-head-cell{text-align:center;padding:10px 0;font-size:12px;font-weight:700;color:var(--sub);}
+.mg-head-cell.sun{color:#dc2626;}
+.mg-head-cell.sat{color:#2563eb;}
+.mg-body{display:grid;grid-template-columns:repeat(7,1fr);}
+.mg-cell{min-height:92px;border-top:1px solid var(--border);border-right:1px solid var(--border);padding:6px;cursor:pointer;transition:background .12s;display:flex;flex-direction:column;gap:3px;}
+.mg-cell:nth-child(7n){border-right:none;}
+.mg-cell:hover{background:var(--head-bg);}
+.mg-empty{background:var(--card-soft);cursor:default;}
+.mg-empty:hover{background:var(--card-soft);}
+.mg-today{background:var(--today-cell-bg);}
+.mg-date{font-size:13px;font-weight:700;color:var(--text);width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:50%;}
+.mg-date.sun{color:#dc2626;}
+.mg-date.sat{color:#2563eb;}
+.mg-today .mg-date{background:var(--accent);color:var(--accent-fg);}
+.mg-chips{display:flex;flex-direction:column;gap:2px;overflow:hidden;}
+.mg-chip{font-size:10px;font-weight:600;padding:2px 6px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;line-height:1.35;}
+.mg-chip-holiday{background:#fee2e2;color:#b91c1c;cursor:default;}
+.mg-chip-event{background:#dbeafe;color:#1d4ed8;}
+.mg-chip-plan{background:#dcfce7;color:#15803d;}
+.mg-more{font-size:10px;font-weight:700;color:var(--faint);padding-left:4px;}
+
+/* 일정 유형 선택 칩 */
+.cal-type-chip.active.cal-type-holiday{background:#dc2626;border-color:#dc2626;color:#fff;}
+.cal-type-chip.active.cal-type-event{background:#2563eb;border-color:#2563eb;color:#fff;}
+.cal-type-chip.active.cal-type-plan{background:#16a34a;border-color:#16a34a;color:#fff;}
+
+@media(max-width:680px){
+  .mg-cell{min-height:64px;padding:4px;}
+  .mg-chip{font-size:9px;padding:1px 4px;}
+  .cal-nav-title{font-size:15px;min-width:90px;}
+}
+
 /* 다크 모드 보정 */
 [data-theme="dark"] .person-check-row.done{background:#0e2a1c;border-color:#1d4d35;}
 [data-theme="dark"] .task-action-btn.has-comments{border-color:#1d4d6e;}
 [data-theme="dark"] .comment-del-btn:hover{background:var(--soft-red-bg-strong);border-color:var(--soft-red-br);}
+
+/* 캘린더 다크 모드 — 칩 톤 다운 */
+[data-theme="dark"] .mg-chip-holiday{background:#2e1818;color:#f87171;}
+[data-theme="dark"] .mg-chip-event{background:#13243d;color:#60a5fa;}
+[data-theme="dark"] .mg-chip-plan{background:#0e2a1c;color:#4ade80;}
+[data-theme="dark"] .mg-head-cell.sun,[data-theme="dark"] .mg-date.sun{color:#f87171;}
+[data-theme="dark"] .mg-head-cell.sat,[data-theme="dark"] .mg-date.sat{color:#60a5fa;}
+[data-theme="dark"] .cal-dot-holiday{background:#f87171;}
+[data-theme="dark"] .cal-dot-event{background:#60a5fa;}
+[data-theme="dark"] .cal-dot-plan{background:#4ade80;}
+[data-theme="dark"] .cal-type-chip.active.cal-type-holiday{background:#dc2626;border-color:#dc2626;}
+[data-theme="dark"] .cal-type-chip.active.cal-type-event{background:#2563eb;border-color:#2563eb;}
+[data-theme="dark"] .cal-type-chip.active.cal-type-plan{background:#16a34a;border-color:#16a34a;}

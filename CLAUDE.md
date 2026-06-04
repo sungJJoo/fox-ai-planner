@@ -38,6 +38,9 @@ URL: https://script.google.com/macros/s/AKfycbxpQ2gMHbwXmjfkQFeGCEDDbWL4I4zCwjP6
 - GET ?action=addRecurringTask&name=X&mon=&tue=&wed=&thu=&fri=&sat=&detail=Z — 반복 업무 추가 (요일별 담당)
 - GET ?action=updateRecurringTask&row=N&name=X&mon=&tue=&wed=&thu=&fri=&sat=&detail=Z — 반복 업무 수정
 - GET ?action=deleteRecurringTask&row=N — 반복 업무 삭제
+- GET ?action=addCalendarEvent&start=YYYY-MM-DD&end=YYYY-MM-DD&title=X&type=공휴일/행사/계획&memo=Z — 캘린더 일정 추가
+- GET ?action=updateCalendarEvent&row=N&start=&end=&title=&type=&memo= — 캘린더 일정 수정
+- GET ?action=deleteCalendarEvent&row=N — 캘린더 일정 삭제
 - GET ?action=addMember&name=X&role=Y&color=Z — 멤버 추가
 - GET ?action=updateMember&original=X&name=Y&role=Z&color=W — 멤버 수정 + 담당표/근무일정/완료업무/반복업무 시트 자동 반영
 - GET ?action=deleteMember&name=X — 멤버 삭제
@@ -81,6 +84,14 @@ URL: https://script.google.com/macros/s/AKfycbxpQ2gMHbwXmjfkQFeGCEDDbWL4I4zCwjP6
 - 헤더: 업무|담당|마감기한|세부사항|완료시각
 - Apps Script가 없으면 자동 생성
 - cleanupCompleted 트리거가 30분 지난 완료 업무를 담당표에서 이 시트로 이동
+
+### 캘린더 탭
+- 헤더: 시작일|종료일|제목|유형|메모
+- 날짜는 yyyy-MM-dd 텍스트 형식 (A·B열 numberFormat '@'로 고정)
+- 유형: 공휴일/행사/계획 (색상 구분, 기본값 계획)
+- 기간 일정: 시작일~종료일 범위 (하루면 종료일=시작일)
+- 2026~2027 한국 공휴일은 app.js의 HOLIDAYS 상수에 내장 (읽기 전용, 시트 무관)
+- 상단바 캘린더 버튼 → 모달, 월 단위 그리드 네비게이션 (2026.01~2027.12)
 
 ## 핵심 로직
 - 앵커 날짜: 2026-04-27 (1주차 월요일 기준, 3주 무한 반복)
