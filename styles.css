@@ -620,6 +620,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .cal-dot-holiday{background:#dc2626;}
 .cal-dot-event{background:#2563eb;}
 .cal-dot-plan{background:#16a34a;}
+.cal-dot-leave{background:#d97706;}
 .cal-add-btn{margin-left:auto;}
 
 .month-grid{border:1px solid var(--border);border-radius:14px;overflow:hidden;}
@@ -643,6 +644,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .mg-chip-holiday{background:#fee2e2;color:#b91c1c;cursor:default;}
 .mg-chip-event{background:#dbeafe;color:#1d4ed8;}
 .mg-chip-plan{background:#dcfce7;color:#15803d;}
+.mg-chip-leave{background:#fef3c7;color:#b45309;cursor:default;display:flex;align-items:center;gap:4px;}
+.mg-chip-half{background:#fffbeb;color:#b45309;cursor:default;display:flex;align-items:center;gap:4px;border:1px solid #fde68a;}
+.mg-leave-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
 .mg-more{font-size:10px;font-weight:700;color:var(--faint);padding-left:4px;}
 
 /* 일정 유형 선택 칩 */
@@ -665,6 +669,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 [data-theme="dark"] .mg-chip-holiday{background:#2e1818;color:#f87171;}
 [data-theme="dark"] .mg-chip-event{background:#13243d;color:#60a5fa;}
 [data-theme="dark"] .mg-chip-plan{background:#0e2a1c;color:#4ade80;}
+[data-theme="dark"] .mg-chip-leave{background:#2e2615;color:#fcd34d;}
+[data-theme="dark"] .mg-chip-half{background:#241f12;color:#fcd34d;border-color:#4a3b1f;}
+[data-theme="dark"] .cal-dot-leave{background:#fbbf24;}
 [data-theme="dark"] .mg-head-cell.sun,[data-theme="dark"] .mg-date.sun{color:#f87171;}
 [data-theme="dark"] .mg-head-cell.sat,[data-theme="dark"] .mg-date.sat{color:#60a5fa;}
 [data-theme="dark"] .cal-dot-holiday{background:#f87171;}

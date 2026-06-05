@@ -31,6 +31,7 @@ let selectedCommentAuthor = null;
 
 // 캘린더 상태
 let CALENDAR_EVENTS = [];                 // 시트에서 온 사용자 일정
+let LEAVE_EVENTS = [];                    // 근무일정에서 자동 추출한 연차/반차 (읽기 전용)
 let calViewYear  = new Date().getFullYear();
 let calViewMonth = new Date().getMonth(); // 0~11
 let editingEventRow = null;               // null=추가, 숫자=수정
@@ -1318,13 +1319,19 @@ function calendarGoToday(){
   renderMonthGrid();
 }
 
-// 특정 날짜(yyyy-MM-dd)에 걸치는 모든 일정 반환 (공휴일 + 사용자 일정)
+// 특정 날짜(yyyy-MM-dd)에 걸치는 모든 일정 반환 (공휴일 + 연차/반차 + 사용자 일정)
 function eventsOnDate(dateKey){
   const list = [];
   // 공휴일
   if(HOLIDAYS[dateKey]){
     list.push({ holiday:true, title:HOLIDAYS[dateKey], type:'공휴일' });
   }
+  // 근무일정에서 자동 추출한 연차/반차 (읽기 전용)
+  LEAVE_EVENTS.forEach(lv => {
+    if(lv.dateKey === dateKey){
+      list.push({ leave:true, name:lv.name, type:lv.type, title:`${lv.name} ${lv.type}` });
+    }
+  });
   // 사용자 일정 (기간 포함)
   CALENDAR_EVENTS.forEach(ev => {
     if(dateKey >= ev.start && dateKey <= (ev.end || ev.start)){
@@ -1372,10 +1379,16 @@ function renderMonthGrid(){
 
     const evs = eventsOnDate(dateKey);
     const chips = evs.slice(0,4).map(ev => {
-      const cls = typeCls(ev.type);
       if(ev.holiday){
         return `<div class="mg-chip mg-chip-holiday" title="${ev.title}">${ev.title}</div>`;
       }
+      if(ev.leave){
+        const lvCls = String(ev.type).includes('반차') ? 'mg-chip-half' : 'mg-chip-leave';
+        const p = PERSON[ev.name];
+        const dot = p ? `<span class="mg-leave-dot av-${p.cls}"></span>` : '';
+        return `<div class="mg-chip ${lvCls}" title="${ev.title}">${dot}${ev.title}</div>`;
+      }
+      const cls = typeCls(ev.type);
       const safeTitle = String(ev.title||'').replace(/"/g,'&quot;');
       return `<div class="mg-chip mg-chip-${cls}" title="${safeTitle}${ev.memo?' — '+String(ev.memo).replace(/"/g,'&quot;'):''}" onclick="event.stopPropagation();openEventEditor(${ev.row})">${ev.title}</div>`;
     }).join('');
@@ -1902,6 +1915,8 @@ function buildWork(weeks){
   const workRoot  = document.getElementById('workTableWrap');
   const leaveRoot = document.getElementById('leaveList');
 
+  LEAVE_EVENTS = [];  // 항상 초기화 (캘린더 자동 표시용)
+
   if(!weeks||!weeks.length){
     workRoot.innerHTML='<div class="empty-state">근무일정 시트에 데이터를 입력해주세요.</div>';
     leaveRoot.innerHTML='<div class="empty-state">근무일정에서 자동으로 추출됩니다.</div>';
@@ -1956,6 +1971,14 @@ function buildWork(weeks){
   });
 
   workRoot.innerHTML=html;
+
+  // 캘린더 자동 표시용 — 연차/반차를 yyyy-MM-dd 키로 저장
+  LEAVE_EVENTS = leaveItems
+    .filter(it => it.date)
+    .map(it => ({ dateKey: ymdFromDate(it.date), name: it.name, type: it.type }));
+  if(document.getElementById('calendarModal').classList.contains('show')){
+    renderMonthGrid();
+  }
 
   if(!leaveItems.length){
     leaveRoot.innerHTML='<div class="empty-state">등록된 연차·반차가 없습니다.</div>';

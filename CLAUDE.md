@@ -91,6 +91,7 @@ URL: https://script.google.com/macros/s/AKfycbxpQ2gMHbwXmjfkQFeGCEDDbWL4I4zCwjP6
 - 유형: 공휴일/행사/계획 (색상 구분, 기본값 계획)
 - 기간 일정: 시작일~종료일 범위 (하루면 종료일=시작일)
 - 2026~2027 한국 공휴일은 app.js의 HOLIDAYS 상수에 내장 (읽기 전용, 시트 무관)
+- 근무일정의 연차/반차도 캘린더에 자동 표시 (LEAVE_EVENTS, buildWork에서 추출, 읽기 전용 칩)
 - 상단바 캘린더 버튼 → 모달, 월 단위 그리드 네비게이션 (2026.01~2027.12)
 
 ## 핵심 로직
