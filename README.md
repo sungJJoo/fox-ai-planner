@@ -1,6 +1,8 @@
 <div align="center">
 
-<img src="https://readme-typing-svg.demolab.com?font=Noto+Sans+KR&weight=800&size=30&pause=1000&color=1C1C1E&center=true&vCenter=true&width=600&height=60&lines=FOX+AI+%EC%97%B0%EA%B5%AC%EC%86%8C+%EB%8B%B4%EB%8B%B9%ED%91%9C;%EB%8B%B4%EB%8B%B9%ED%91%9C+%C2%B7+%EC%97%85%EB%AC%B4+%C2%B7+%EA%B7%BC%EB%AC%B4%EC%9D%BC%EC%A0%95+%C2%B7+%EC%BA%98%EB%A6%B0%EB%8D%94;%EC%84%9C%EB%B2%84%EB%A6%AC%EC%8A%A4+%C2%B7+%EC%9A%B4%EC%98%81%EB%B9%84+0%EC%9B%90" alt="FOX AI 연구소 담당표" />
+# 폭스러닝센터 AI 연구소 스케쥴러
+
+**담당표 · 업무 · 근무일정 · 캘린더를 한 화면에 · 서버리스 · 운영비 0원**
 
 ![HTML](https://img.shields.io/badge/HTML-E34F26?style=flat&logo=html5&logoColor=white)
 ![CSS](https://img.shields.io/badge/CSS-1572B6?style=flat&logo=css3&logoColor=white)
