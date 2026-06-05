@@ -9,7 +9,7 @@
 ![GitHub Pages](https://img.shields.io/badge/GitHub_Pages-222?style=flat&logo=github&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-5A0FC8?style=flat&logo=pwa&logoColor=white)
 
-**[🔗 사이트 바로가기](https://sungjjoo.github.io/fox-ai-research-schedule/)**
+
 
 </div>
 
