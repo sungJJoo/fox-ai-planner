@@ -639,6 +639,15 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .mg-date.sun{color:#dc2626;}
 .mg-date.sat{color:#2563eb;}
 .mg-today .mg-date{background:var(--accent);color:var(--accent-fg);}
+/* 여러 날 일정 연속 막대 — 셀 패딩을 뚫고 이어지게 */
+.mg-bars{display:flex;flex-direction:column;gap:2px;min-width:0;margin:0 -6px 2px;}
+.mg-bar{height:17px;line-height:17px;font-size:10px;font-weight:600;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;border-radius:0;min-width:0;}
+.mg-bar-l{border-top-left-radius:6px;border-bottom-left-radius:6px;margin-left:2px;}
+.mg-bar-r{border-top-right-radius:6px;border-bottom-right-radius:6px;margin-right:2px;}
+.mg-bar-plan{background:#dcfce7;color:#15803d;}
+.mg-bar-event{background:#dbeafe;color:#1d4ed8;}
+.mg-bar-holiday{background:#fee2e2;color:#b91c1c;}
+
 .mg-chips{display:flex;flex-direction:column;gap:2px;overflow:hidden;min-width:0;}
 .mg-chip{font-size:10px;font-weight:600;padding:2px 6px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;line-height:1.35;min-width:0;max-width:100%;}
 .mg-chip-holiday{background:#fee2e2;color:#b91c1c;cursor:default;}
@@ -672,6 +681,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 [data-theme="dark"] .mg-chip-leave{background:#2e2615;color:#fcd34d;}
 [data-theme="dark"] .mg-chip-half{background:#241f12;color:#fcd34d;border-color:#4a3b1f;}
 [data-theme="dark"] .cal-dot-leave{background:#fbbf24;}
+[data-theme="dark"] .mg-bar-plan{background:#0e2a1c;color:#4ade80;}
+[data-theme="dark"] .mg-bar-event{background:#13243d;color:#60a5fa;}
+[data-theme="dark"] .mg-bar-holiday{background:#2e1818;color:#f87171;}
 [data-theme="dark"] .mg-head-cell.sun,[data-theme="dark"] .mg-date.sun{color:#f87171;}
 [data-theme="dark"] .mg-head-cell.sat,[data-theme="dark"] .mg-date.sat{color:#60a5fa;}
 [data-theme="dark"] .cal-dot-holiday{background:#f87171;}

@@ -1378,7 +1378,32 @@ function renderMonthGrid(){
     const isSat = weekday === 6;
 
     const evs = eventsOnDate(dateKey);
-    const chips = evs.slice(0,4).map(ev => {
+
+    // 여러 날 일정(막대) vs 하루짜리(칩) 분리
+    const bars = [], singles = [];
+    evs.forEach(ev => {
+      const isMulti = !ev.holiday && !ev.leave && ev.start && ev.end && ev.end > ev.start;
+      (isMulti ? bars : singles).push(ev);
+    });
+    // 막대는 시작일 순으로 정렬 → 여러 날에 걸쳐 같은 줄(레인)에 표시되도록
+    bars.sort((a,b)=> a.start<b.start?-1 : a.start>b.start?1 : (a.row||0)-(b.row||0));
+
+    const isWeekStart = (weekday === 0) || (dayNum === 1);
+
+    // 연속 막대: 제목은 시작일 또는 매주 첫날에만, 시작/끝만 둥글게
+    const barHtml = bars.map(ev => {
+      const cls = typeCls(ev.type);
+      const isStart = dateKey === ev.start;
+      const isEnd   = dateKey === ev.end;
+      const showTitle = isStart || isWeekStart;
+      const rnd = (isStart?' mg-bar-l':'') + (isEnd?' mg-bar-r':'');
+      const safeTitle = String(ev.title||'').replace(/"/g,'&quot;');
+      const tip = safeTitle + (ev.memo?' — '+String(ev.memo).replace(/"/g,'&quot;'):'');
+      return `<div class="mg-bar mg-bar-${cls}${rnd}" title="${tip}" onclick="event.stopPropagation();openEventEditor(${ev.row})">${showTitle?ev.title:'&nbsp;'}</div>`;
+    }).join('');
+
+    // 하루짜리 칩 (공휴일·연차/반차·단일 일정)
+    const singleHtml = singles.slice(0,3).map(ev => {
       if(ev.holiday){
         return `<div class="mg-chip mg-chip-holiday" title="${ev.title}">${ev.title}</div>`;
       }
@@ -1392,11 +1417,13 @@ function renderMonthGrid(){
       const safeTitle = String(ev.title||'').replace(/"/g,'&quot;');
       return `<div class="mg-chip mg-chip-${cls}" title="${safeTitle}${ev.memo?' — '+String(ev.memo).replace(/"/g,'&quot;'):''}" onclick="event.stopPropagation();openEventEditor(${ev.row})">${ev.title}</div>`;
     }).join('');
-    const moreCount = evs.length > 4 ? `<div class="mg-more">+${evs.length-4}</div>` : '';
+    const hidden = singles.length > 3 ? singles.length - 3 : 0;
+    const moreCount = hidden ? `<div class="mg-more">+${hidden}</div>` : '';
 
     html += `<div class="mg-cell ${isToday?'mg-today':''}" onclick="openEventEditor(null,'${dateKey}')">
       <div class="mg-date ${isSun?'sun':''} ${isSat?'sat':''}">${dayNum}</div>
-      <div class="mg-chips">${chips}${moreCount}</div>
+      <div class="mg-bars">${barHtml}</div>
+      <div class="mg-chips">${singleHtml}${moreCount}</div>
     </div>`;
   }
   html += '</div>';
