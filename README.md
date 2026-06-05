@@ -216,19 +216,6 @@ git push                     # 1~2분 뒤 사이트에 자동 반영
 
 ---
 
-## 🔧 백엔드(GAS) 변경 시
-
-1. `apps-script.gs` 수정
-2. [Raw 파일](https://raw.githubusercontent.com/sungJJoo/fox-ai-research-schedule/main/apps-script.gs) 전체 복사 → GAS 편집기에 덮어쓰기 → 저장
-3. **배포 → 배포 관리 → ✏️ → 버전 "새 버전" → 배포**
-4. URL이 바뀌면 `app.js`의 `API_URL` 갱신 후 commit/push
-
-**트리거 (GAS 편집기에서 1회 실행)**
-- `installTrigger` — 완료 업무 자동 정리(15분마다)
-- `installMonthTrigger` — 근무일정 월 자동 전환(매일 새벽 1시 점검)
-
----
-
 ## 📁 파일 구성
 
 | 파일 | 역할 |
