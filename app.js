@@ -1982,7 +1982,9 @@ function buildWork(weeks){
             return `<tr>
               <td class="member-col">${p?`<span class="mini-av av-${p.cls}">${p.short}</span>`:''}<span class="member-name">${name}</span></td>
               ${DAYS_ALL.map(d=>{
-                const dobj=parseDate(week.dates[d]);
+                const ds=week.dates[d];
+                if(!ds) return `<td class="noday-cell"></td>`;  // 날짜 없는 칸(월초/월말 여백)은 비움
+                const dobj=parseDate(ds);
                 const isT=dobj&&sameDay(dobj,today);
                 const val=sched[d]||'';
                 if(val==='연차'||val.includes('반차')){

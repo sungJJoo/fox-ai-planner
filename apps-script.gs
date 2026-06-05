@@ -935,3 +935,113 @@ function installTrigger() {
   });
   ScriptApp.newTrigger('cleanupCompleted').timeBased().everyMinutes(15).create();
 }
+
+/* ═══════════════════════ 근무일정 월 자동 전환 ═══════════════════════
+ * 매달 1일 기준으로 근무일정 날짜를 그 달로 자동 교체.
+ * - 멤버 근무패턴(근무시간·고정 휴무)과 모든 서식(색·테두리)은 그대로 유지, 날짜만 교체
+ * - 월~토 레이아웃, 일요일은 칸 없음 → 1일이 일요일이면 자동으로 2일(월)부터 시작
+ * - 한 달이 6주 필요하면(예: 1일이 토요일+31일) 마지막 블록을 복사해 자동 확장
+ *
+ * 사용:
+ *   1) 재배포 후 GAS 편집기에서 rollWorkScheduleMonth 1회 직접 실행 → 이번 달로 전환되는지 확인
+ *   2) 잘 되면 installMonthTrigger 1회 실행 → 매일 새벽 1시 자동 점검(월 바뀌면 전환)
+ */
+
+// 해당 월의 월~토 주 배열. 각 주 = [월,화,수,목,금,토] 'M/d' 문자열 또는 ''
+function computeMonthWeeks_(year, month) {
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const weeks = [];
+  let cur = ['', '', '', '', '', ''];
+  let hasAny = false;
+  for (let d = 1; d <= lastDay; d++) {
+    const wd = new Date(year, month, d).getDay(); // 0=일 ... 6=토
+    if (wd === 0) continue;                        // 일요일 칸 없음 → 건너뜀
+    cur[wd - 1] = (month + 1) + '/' + d;           // 월=0 ... 토=5
+    hasAny = true;
+    if (wd === 6) { weeks.push(cur); cur = ['', '', '', '', '', '']; hasAny = false; }
+  }
+  if (hasAny) weeks.push(cur);
+  return weeks;
+}
+
+// 근무일정을 지정 월(기본 오늘)로 전환. 날짜만 교체, 패턴/서식 유지.
+function rollWorkScheduleMonth(optDate) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName('근무일정');
+  if (!ws) return { ok: false, error: '근무일정 시트 없음' };
+
+  const today = optDate || new Date();
+  const year  = today.getFullYear();
+  const month = today.getMonth();
+
+  // 멤버 이름
+  const ms = ss.getSheetByName('멤버');
+  const memberNames = [];
+  if (ms) {
+    const md = ms.getDataRange().getValues();
+    for (let i = 1; i < md.length; i++) {
+      const n = String(md[i][0] || '').trim();
+      if (n) memberNames.push(n);
+    }
+  }
+  if (!memberNames.length) return { ok: false, error: '멤버 없음' };
+
+  // 블록 탐지: colA 비어있고 바로 아래가 멤버행이면 그 행이 날짜행
+  let lastRow = ws.getLastRow();
+  const colA = ws.getRange(1, 1, lastRow, 1).getValues().map(r => String(r[0]).trim());
+  const blocks = [];
+  for (let r = 0; r < lastRow; r++) {
+    if (colA[r] === '' && r + 1 < lastRow && memberNames.indexOf(colA[r + 1]) >= 0) {
+      let cnt = 0;
+      while (r + 1 + cnt < lastRow && memberNames.indexOf(colA[r + 1 + cnt]) >= 0) cnt++;
+      blocks.push({ dateRow: r + 1, memberStart: r + 2, memberCount: cnt }); // 1-based
+    }
+  }
+  if (!blocks.length) return { ok: false, error: '날짜 블록을 찾지 못함' };
+
+  const weeks = computeMonthWeeks_(year, month);
+
+  // 블록이 부족하면 마지막 블록 복사해서 확장 (서식·멤버 패턴 유지)
+  while (blocks.length < weeks.length) {
+    const last = blocks[blocks.length - 1];
+    const blockRows = 1 + last.memberCount;
+    const srcRange = ws.getRange(last.dateRow, 1, blockRows, 7); // A~G
+    const lastMemberRow = last.memberStart + last.memberCount - 1;
+    ws.insertRowsAfter(lastMemberRow, blockRows + 1);            // +1: 블록 사이 빈 줄
+    const destStart = lastMemberRow + 2;
+    srcRange.copyTo(ws.getRange(destStart, 1, blockRows, 7), { contentsOnly: false });
+    blocks.push({ dateRow: destStart, memberStart: destStart + 1, memberCount: last.memberCount });
+  }
+
+  // 각 블록 날짜행(B~G)에 주 날짜 기입 (텍스트 고정). 남는 블록은 날짜 비움.
+  for (let i = 0; i < blocks.length; i++) {
+    const wk = weeks[i] || ['', '', '', '', '', ''];
+    const rng = ws.getRange(blocks[i].dateRow, 2, 1, 6);
+    rng.setNumberFormat('@');
+    rng.setValues([wk]);
+  }
+
+  // 제목 갱신
+  try { ws.getRange(1, 1).setValue((month + 1) + '월 출근 일자'); } catch (e) {}
+
+  PropertiesService.getScriptProperties().setProperty('wsMonth', year + '-' + month);
+  bumpVersion();
+  return { ok: true, month: (month + 1), weeks: weeks.length, blocks: blocks.length };
+}
+
+// 트리거용: 저장된 월과 현재 월이 다르면 전환
+function autoRollMonth() {
+  const now = new Date();
+  const key = now.getFullYear() + '-' + now.getMonth();
+  const stored = PropertiesService.getScriptProperties().getProperty('wsMonth');
+  if (stored === key) return;
+  rollWorkScheduleMonth(now);
+}
+
+// 매일 새벽 1시 autoRollMonth 실행 트리거 설치 (1회 실행 필요)
+function installMonthTrigger() {
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === 'autoRollMonth') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('autoRollMonth').timeBased().everyDays(1).atHour(1).create();
+}

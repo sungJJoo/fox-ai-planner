@@ -276,6 +276,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .work-table td:last-child{border-right:none;}
 .work-table tr:last-child td{border-bottom:none;}
 .work-table td.today-cell{background:var(--today-cell-bg);}
+.work-table td.noday-cell{background:var(--card-soft);}
 .work-table td.member-col{text-align:left;padding:10px 12px;background:var(--head-bg);border-right:1px solid var(--border);white-space:nowrap;min-width:90px;}
 .mini-av{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-size:10px;font-weight:800;margin-right:6px;vertical-align:middle;}
 .mini-av.av-ysh{background:var(--ysh-lt);color:var(--ysh);}

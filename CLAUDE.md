@@ -74,6 +74,11 @@ URL: https://script.google.com/macros/s/AKfycbxpQ2gMHbwXmjfkQFeGCEDDbWL4I4zCwjP6
 - 날짜행: A열 비어있음, B~G열에 M/D 형식 날짜
 - 멤버행: A열에 이름, B~G열에 근무 정보
 - 셀값 종류: 시간(예: 11:00-20:00), 휴무, 연차, 반차(오전), 반차(오후), 공휴일
+- **월 자동 전환**: rollWorkScheduleMonth가 매달 1일 기준으로 날짜만 그 달로 교체 (멤버 패턴·서식 유지)
+  - 월~토 레이아웃, 일요일 칸 없음 → 1일이 일요일이면 2일(월)부터 시작
+  - 6주 필요한 달은 마지막 블록 copyTo로 자동 확장
+  - autoRollMonth 트리거(installMonthTrigger)가 매일 새벽 1시 월 변경 점검
+  - 프론트: 날짜 없는 칸(여백)은 noday-cell로 비워 표시
 
 ### 멤버 탭
 - 헤더: 이름|역할|색상
