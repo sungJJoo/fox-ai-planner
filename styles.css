@@ -24,14 +24,19 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 /* 목차 점프 시 섹션이 화면 맨 위에 너무 붙지 않게 */
 #sec-tasks,#sec-recurring,#sec-work,#sec-leave,#sec-completed,#calRoot{scroll-margin-top:24px;}
 
-/* ───────── 사이드 목차(우측 여백 점프 메뉴) ───────── */
-.page-toc{position:fixed;top:50%;right:18px;transform:translateY(-50%);z-index:50;display:flex;flex-direction:column;gap:2px;padding:8px;border-radius:14px;border:1px solid transparent;background:transparent;transition:background .2s,box-shadow .2s,border-color .2s;}
-.page-toc:hover{background:var(--card);border-color:var(--border);box-shadow:0 10px 34px rgba(0,0,0,.1);}
-.toc-item{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--sub);padding:5px 6px;border-radius:9px;transition:color .15s,background .15s;}
+/* ───────── 사이드 목차(우측 여백 점프 메뉴 · 세로 스텝퍼) ───────── */
+.page-toc{position:fixed;top:50%;right:20px;transform:translateY(-50%);z-index:50;display:flex;flex-direction:column;gap:7px;padding:12px 9px;border-radius:14px;border:1px solid transparent;background:transparent;transition:background .2s,box-shadow .2s,border-color .2s;}
+/* 점들을 잇는 세로 레일 */
+.page-toc::before{content:'';position:absolute;left:14.5px;top:18px;bottom:18px;width:2px;background:var(--border);border-radius:2px;transition:opacity .2s;}
+.page-toc:hover{background:var(--card);border-color:var(--border);box-shadow:0 12px 36px rgba(0,0,0,.12);}
+.page-toc:hover::before{opacity:0;}
+.toc-item{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--sub);padding:3px 5px;border-radius:9px;position:relative;z-index:1;transition:color .15s,background .15s;}
 .toc-item:hover{color:var(--text);background:var(--head-bg);}
-.toc-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .15s,transform .15s;}
+.toc-dot{width:11px;height:11px;border-radius:50%;background:var(--bg);border:2px solid var(--faint);box-sizing:border-box;flex-shrink:0;transition:background .15s,border-color .15s,transform .15s;}
+.page-toc:hover .toc-dot{background:var(--card);}
+.toc-item:hover .toc-dot{border-color:var(--sub);}
 .toc-item.active{color:var(--text);font-weight:700;}
-.toc-item.active .toc-dot{background:var(--accent);transform:scale(1.4);}
+.toc-item.active .toc-dot{background:var(--accent);border-color:var(--accent);transform:scale(1.2);}
 .toc-label{font-size:12px;font-weight:600;white-space:nowrap;max-width:0;opacity:0;overflow:hidden;transition:max-width .22s ease,opacity .18s;}
 .page-toc:hover .toc-label{max-width:90px;opacity:1;}
 @media(max-width:1240px){.page-toc{display:none;}}
