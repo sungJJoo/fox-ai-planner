@@ -196,6 +196,7 @@ async function loadData(force){
     buildRecurring(recurringList);
     buildCompleted(completedList);
     buildWork(data.workSchedule||[]);
+    buildTodayHero(data.schedule||[], tasks, data.workSchedule||[]);
     // 캘린더 모달이 열려있으면 다시 렌더
     if(document.getElementById('calendarModal').classList.contains('show')){
       renderMonthGrid();
@@ -249,6 +250,98 @@ function buildCalendar(schedule){
     row.innerHTML=h;
     cal.appendChild(row);
   }
+}
+
+// ───────── 오늘 요약 히어로 ─────────
+const HERO_ICONS = {
+  duty:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>',
+  deadline:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/></svg>',
+  off:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6L19 19M19 5l-1.4 1.4M6.4 17.6L5 19"/></svg>',
+  overdue: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9.5 16.5h-19z"/><line x1="12" y1="10" x2="12" y2="14"/><line x1="12" y1="17.5" x2="12.01" y2="17.5"/></svg>',
+};
+
+function buildTodayHero(schedule, tasks, workSchedule){
+  const hero = document.getElementById('todayHero');
+  if(!hero) return;
+
+  const today = midnight(new Date());
+  const dow   = today.getDay();              // 0=일 ... 6=토
+
+  // 날짜 + 주차
+  const tMon  = getMonday(today);
+  const diff  = Math.round((tMon - midnight(ANCHOR)) / 864e5);
+  const wkIdx = ((Math.floor(diff/7) % 3) + 3) % 3;
+  const wname = ['일','월','화','수','목','금','토'][dow];
+
+  // 오늘 담당 (월~금만)
+  let duty = '';
+  if(dow >= 1 && dow <= 5){
+    const dayKey = ['월','화','수','목','금'][dow-1];
+    duty = String((schedule[wkIdx]||{})[dayKey] || '').trim();
+  }
+
+  // 오늘 마감 (미완료)
+  const dueToday = (tasks||[]).filter(t => {
+    if(t['완료']) return false;
+    const dl = parseDate(t['마감기한']);
+    return dl && sameDay(dl, today);
+  }).length;
+
+  // 누락 (기한 지난 미완료) — 이미 계산된 캐시 사용
+  const overdue = overdueTasksCache.length;
+
+  // 오늘 휴무/연차/반차
+  const offList = [];
+  (workSchedule||[]).forEach(week => {
+    DAYS_ALL.forEach(d => {
+      const dobj = parseDate(week.dates[d]);
+      if(dobj && sameDay(dobj, today)){
+        Object.keys(week.members).forEach(name => {
+          const val = String(week.members[name][d]||'').trim();
+          if(val==='휴무' || val==='연차' || val.includes('반차')){
+            offList.push({ name, val });
+          }
+        });
+      }
+    });
+  });
+
+  // ── 렌더 헬퍼 ──
+  const dutyP = PERSON[duty];
+  const dutyHtml = duty
+    ? `<span class="hero-person"><span class="mini-av av-${dutyP?dutyP.cls:'kkh'}">${dutyP?dutyP.short:duty.slice(-2)}</span>${duty}</span>`
+    : `<span class="hero-empty">담당 없음</span>`;
+
+  const offHtml = offList.length
+    ? offList.map(o => {
+        const p = PERSON[o.name];
+        return `<span class="hero-person"><span class="mini-av av-${p?p.cls:'kkh'}">${p?p.short:o.name.slice(-2)}</span>${o.name}<span class="hero-off-tag">${o.val}</span></span>`;
+      }).join('')
+    : `<span class="hero-empty">없음</span>`;
+
+  hero.innerHTML = `
+    <div class="hero-date">
+      <div class="hero-date-big">${today.getMonth()+1}월 ${today.getDate()}일 <span class="hero-dow">${wname}요일</span></div>
+      <div class="hero-date-sub">AI 연구소 ${wkIdx+1}주차</div>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="hero-stat-icon">${HERO_ICONS.duty}</div>
+        <div class="hero-stat-body"><div class="hero-stat-label">오늘 담당</div><div class="hero-stat-val">${dutyHtml}</div></div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-icon">${HERO_ICONS.deadline}</div>
+        <div class="hero-stat-body"><div class="hero-stat-label">오늘 마감</div><div class="hero-stat-val ${dueToday?'':'hero-zero'}">${dueToday}건</div></div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-icon">${HERO_ICONS.off}</div>
+        <div class="hero-stat-body"><div class="hero-stat-label">오늘 휴무</div><div class="hero-stat-val">${offHtml}</div></div>
+      </div>
+      <div class="hero-stat ${overdue?'hero-stat-alert':''}" ${overdue?'onclick="openOverdueModal()" role="button" title="누락 업무 보기"':''}>
+        <div class="hero-stat-icon">${HERO_ICONS.overdue}</div>
+        <div class="hero-stat-body"><div class="hero-stat-label">누락 업무</div><div class="hero-stat-val ${overdue?'hero-danger':'hero-zero'}">${overdue}건</div></div>
+      </div>
+    </div>`;
 }
 
 function buildTasks(tasks){
