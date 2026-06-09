@@ -2177,6 +2177,28 @@ if('serviceWorker' in navigator){
   });
 }
 
+// ───────── 사이드 목차 스크롤 스파이 ─────────
+function initPageToc(){
+  const toc = document.getElementById('pageToc');
+  if(!toc || !('IntersectionObserver' in window)) return;
+  const items   = Array.from(toc.querySelectorAll('.toc-item'));
+  const targets = items.map(it => document.getElementById(it.dataset.target)).filter(Boolean);
+  if(!targets.length) return;
+
+  function setActive(id){
+    items.forEach(it => it.classList.toggle('active', it.dataset.target === id));
+  }
+
+  const obs = new IntersectionObserver(entries => {
+    const visible = entries.filter(e => e.isIntersecting)
+      .sort((a,b) => a.boundingClientRect.top - b.boundingClientRect.top);
+    if(visible.length) setActive(visible[0].target.id);
+  }, { rootMargin: '-12% 0px -78% 0px', threshold: 0 });
+
+  targets.forEach(t => obs.observe(t));
+}
+
 // ───── 초기화 ─────
 refreshNotifBtn();
+initPageToc();
 loadData(true).then(() => { startPolling(); });

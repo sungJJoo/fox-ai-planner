@@ -76,7 +76,7 @@
 
   <div class="cal" id="calRoot"><div class="loading">담당표 불러오는 중...</div></div>
 
-  <div class="section-wrap">
+  <div class="section-wrap" id="sec-tasks">
     <div class="section-header">
       <div><div class="section-title">업무 리스트</div></div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
@@ -103,7 +103,7 @@
     <div class="task-list" id="taskList"></div>
   </div>
 
-  <div class="section-wrap">
+  <div class="section-wrap" id="sec-recurring">
     <div class="section-header">
       <div>
         <div class="section-title">반복 업무 <span class="completed-count" id="recurringCount" style="display:none;background:#3b82f6">0</span></div>
@@ -119,7 +119,7 @@
     <div class="task-list" id="recurringList"></div>
   </div>
 
-  <div class="section-wrap">
+  <div class="section-wrap" id="sec-work">
     <div class="section-header">
       <div>
         <div class="section-title">근무 일정표</div>
@@ -129,7 +129,7 @@
     <div id="workTableWrap"><div class="loading">불러오는 중...</div></div>
   </div>
 
-  <div class="section-wrap">
+  <div class="section-wrap" id="sec-leave">
     <div class="section-header">
       <div>
         <div class="section-title">연차 · 반차 계획</div>
@@ -139,7 +139,7 @@
     <div class="leave-grid" id="leaveList"><div class="loading">불러오는 중...</div></div>
   </div>
 
-  <div class="section-wrap">
+  <div class="section-wrap" id="sec-completed">
     <div class="section-header">
       <div>
         <div class="section-title">완료 업무 리스트 <span class="completed-count" id="completedCount" style="display:none">0</span></div>
@@ -163,6 +163,15 @@
   </div>
 
 </div>
+
+<nav class="page-toc" id="pageToc" aria-label="섹션 목차">
+  <a class="toc-item" href="#calRoot"       data-target="calRoot"><span class="toc-dot"></span><span class="toc-label">담당표</span></a>
+  <a class="toc-item" href="#sec-tasks"      data-target="sec-tasks"><span class="toc-dot"></span><span class="toc-label">업무</span></a>
+  <a class="toc-item" href="#sec-recurring"  data-target="sec-recurring"><span class="toc-dot"></span><span class="toc-label">반복 업무</span></a>
+  <a class="toc-item" href="#sec-work"       data-target="sec-work"><span class="toc-dot"></span><span class="toc-label">근무 일정</span></a>
+  <a class="toc-item" href="#sec-leave"      data-target="sec-leave"><span class="toc-dot"></span><span class="toc-label">연차·반차</span></a>
+  <a class="toc-item" href="#sec-completed"  data-target="sec-completed"><span class="toc-dot"></span><span class="toc-label">완료 업무</span></a>
+</nav>
 
 <div class="modal-overlay" id="overdueOverlay" onclick="closeOverdueModal()"></div>
 <div class="modal" id="overdueModal">
