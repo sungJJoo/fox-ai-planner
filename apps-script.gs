@@ -25,6 +25,7 @@
  *   GET /                              → schedule, tasks, members, workSchedule, completedTasks, recurringTasks, v
  *   GET ?action=getHash                → { v } 만 (가벼운 변경 감지 핑)
  *   GET ?action=setComplete&row=N&value=true/false
+ *   GET ?action=setSchedule&week=1~3&day=월~금&name=  (3주 순환 담당표 칸 변경, name='' 비우기)
  *   GET ?action=setPersonalComplete&row=N&person=name&value=true/false
  *   GET ?action=addComment&row=N&author=name&text=content  (author 필수 — 익명 불가)
  *   GET ?action=deleteComment&row=N&ts=timestamp
@@ -161,6 +162,29 @@ function doGet(e) {
     } else {
       tsCell.clearContent();
     }
+
+    bumpVersion();
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // ── 3주 순환 담당표 칸 변경 (A1:F4) ──
+  if (action === 'setSchedule') {
+    const sheet = ss.getSheetByName('담당표');
+    const week  = parseInt(e.parameter.week);   // 1,2,3
+    const day   = e.parameter.day || '';        // 월~금
+    const name  = e.parameter.name || '';       // 멤버 이름 또는 '' (비우기)
+    const dayCols = { '월':2, '화':3, '수':4, '목':5, '금':6 };
+
+    if (!week || week < 1 || week > 3 || !dayCols[day]) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: false, error: '주차/요일 오류' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 헤더가 1행이므로 week 1 = 2행, 2 = 3행, 3 = 4행
+    sheet.getRange(week + 1, dayCols[day]).setValue(name);
 
     bumpVersion();
     return ContentService

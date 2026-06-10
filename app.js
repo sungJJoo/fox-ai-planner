@@ -217,6 +217,7 @@ async function loadData(force){
 
     currentTasksCache = tasks;
     CALENDAR_EVENTS = calendarList;
+    LAST_WORK_SCHEDULE = data.workSchedule||[];
     renderMembersBar();
     buildCalendar(data.schedule||[]);
     buildTasks(tasks);
@@ -249,7 +250,10 @@ async function loadData(force){
   }
 }
 
+let SCHEDULE_3WK = [];  // 3주 순환 담당표 (클릭 편집용 전역 캐시)
+
 function buildCalendar(schedule){
+  SCHEDULE_3WK = schedule || [];
   const cal=document.getElementById('calRoot');
   cal.innerHTML='';
   const today=midnight(new Date()),tMon=getMonday(today);
@@ -273,8 +277,9 @@ function buildCalendar(schedule){
       const date=addDays(mon,d),isT=sameDay(date,today);
       const dayKey=['월','화','수','목','금'][d];
       const p=PERSON[schedule[wk]?.[dayKey]];
-      if(!p){h+=`<div class="cal-cell ${isT?'today':''}"><div class="cell-date">${fmt(date)}</div></div>`;continue;}
-      h+=`<div class="cal-cell ${isT?'today':''}">
+      const edit=`onclick="openDutyPicker(event,${wk+1},'${dayKey}')" data-week="${wk+1}" data-day="${dayKey}"`;
+      if(!p){h+=`<div class="cal-cell cal-cell-edit ${isT?'today':''}" ${edit}><div class="cell-date">${fmt(date)}</div><div class="cell-add">+ 담당</div></div>`;continue;}
+      h+=`<div class="cal-cell cal-cell-edit ${isT?'today':''}" ${edit}>
         <div class="cell-date">${fmt(date)}</div>
         ${isT?'<div class="today-dot">TODAY</div>':''}
         <div class="ev ev-${p.cls}">
@@ -285,6 +290,63 @@ function buildCalendar(schedule){
     }
     row.innerHTML=h;
     cal.appendChild(row);
+  }
+}
+
+// ── 담당표 칸 클릭 → 멤버 선택 팝오버 ──
+let LAST_WORK_SCHEDULE = [];  // 히어로 갱신용 캐시
+
+function openDutyPicker(ev, week, day){
+  ev.stopPropagation();
+  const cell = ev.currentTarget;
+  const picker = document.getElementById('dutyPicker');
+  if(!picker) return;
+  const cur = String((SCHEDULE_3WK[week-1]||{})[day] || '').trim();
+
+  picker.innerHTML =
+    `<div class="duty-pick-title">${week}주차 ${day}요일 담당</div>` +
+    `<div class="duty-pick-list">` +
+    Object.values(PERSON).map(p => {
+      const active = p.full === cur ? ' active' : '';
+      const safe = p.full.replace(/'/g,'');
+      return `<button class="duty-pick-chip${active}" onclick="setDuty(${week},'${day}','${safe}')"><span class="mini-av av-${p.cls}">${p.short}</span>${p.full}</button>`;
+    }).join('') +
+    `<button class="duty-pick-chip duty-pick-clear" onclick="setDuty(${week},'${day}','')">비우기</button>` +
+    `</div>`;
+
+  // 위치: 셀 아래, 화면 밖이면 보정
+  picker.style.display='block';
+  const r = cell.getBoundingClientRect();
+  const pw = picker.offsetWidth, ph = picker.offsetHeight;
+  let left = r.left;
+  if(left + pw > window.innerWidth - 10) left = window.innerWidth - pw - 10;
+  let top = r.bottom + 6;
+  if(top + ph > window.innerHeight - 10) top = r.top - ph - 6;  // 아래 공간 없으면 위로
+  picker.style.left = Math.max(10,left)+'px';
+  picker.style.top  = Math.max(10,top)+'px';
+}
+
+function closeDutyPicker(){
+  const picker = document.getElementById('dutyPicker');
+  if(picker) picker.style.display='none';
+}
+
+async function setDuty(week, day, name){
+  closeDutyPicker();
+  // 낙관적 반영
+  if(!SCHEDULE_3WK[week-1]) SCHEDULE_3WK[week-1] = {};
+  SCHEDULE_3WK[week-1][day] = name;
+  buildCalendar(SCHEDULE_3WK);
+  buildTodayHero(SCHEDULE_3WK, currentTasksCache, LAST_WORK_SCHEDULE);
+  showToast(name ? `✓ ${week}주차 ${day}요일 → ${name}` : `✓ ${week}주차 ${day}요일 비움`);
+
+  try{
+    const res = await fetch(`${API_URL}?action=setSchedule&week=${week}&day=${encodeURIComponent(day)}&name=${encodeURIComponent(name)}`);
+    const json = await res.json();
+    if(!json.ok) throw new Error(json.error||'error');
+  }catch(err){
+    showToast('⚠ 저장 실패 — 새로고침 후 확인', true);
+    loadData(true).catch(()=>{});
   }
 }
 
@@ -813,7 +875,7 @@ async function deleteMember(idx, name){
 }
 
 document.addEventListener('keydown', e=>{
-  if(e.key==='Escape'){closeOverdueModal();closeSettings();closeTaskModal();closeCommentModal();closeEventEditor();closeCalendarModal();}
+  if(e.key==='Escape'){closeOverdueModal();closeSettings();closeTaskModal();closeCommentModal();closeEventEditor();closeCalendarModal();closeDutyPicker();}
   // 단축키: N → 업무 추가 (입력 필드 포커스 중이면 무시)
   if(e.key==='n' || e.key==='N'){
     const t = e.target;
@@ -2233,6 +2295,15 @@ function initPageToc(){
 
   targets.forEach(t => obs.observe(t));
 }
+
+// 담당표 팝오버: 바깥 클릭 시 닫기
+document.addEventListener('click', e => {
+  const picker = document.getElementById('dutyPicker');
+  if(picker && picker.style.display==='block' && !picker.contains(e.target) && !e.target.closest('.cal-cell-edit')){
+    closeDutyPicker();
+  }
+});
+window.addEventListener('resize', closeDutyPicker);
 
 // ───── 초기화 ─────
 refreshNotifBtn();
