@@ -164,13 +164,40 @@ function renderVal(val){
   return `<span style="font-size:12px">${s}</span>`;
 }
 
+// 타임아웃 있는 fetch (GAS가 가끔 느려져 무한 대기하는 것 방지)
+function fetchWithTimeout(url, ms){
+  if(!('AbortController' in window)) return fetch(url);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
+}
+
+let _slowTimer = null;
 async function loadData(force){
   // force=true: 명시적 갱신(저장/삭제 등) - 인디케이터 표시
   // force=false 또는 생략: 폴링 - 변경 있을 때만 다시 그림
   if(force) updatePollIndicator('updating');
+
+  // 첫 로딩(데이터 없음)이 오래 걸리면 "느림" 안내
+  const firstLoad = !lastDataHash;
+  if(force && firstLoad){
+    clearTimeout(_slowTimer);
+    _slowTimer = setTimeout(() => {
+      const el = document.getElementById('calRoot');
+      if(el && el.querySelector('.loading')) el.querySelector('.loading').textContent = '응답이 느려요 · 다시 시도 중...';
+    }, 7000);
+  }
+
   try{
-    const res  = await fetch(API_URL);
+    // 최대 2회 시도 (타임아웃 22초), 무거운 전체 GET 대비
+    let res, lastErr;
+    for(let attempt=0; attempt<2; attempt++){
+      try{ res = await fetchWithTimeout(API_URL, 22000); break; }
+      catch(e){ lastErr = e; if(attempt===0) await new Promise(r=>setTimeout(r,800)); }
+    }
+    if(!res) throw lastErr || new Error('네트워크 오류');
     const data = await res.json();
+    clearTimeout(_slowTimer);
     MEMBERS_LIST = data.members || [];
     PERSON       = buildPerson(MEMBERS_LIST);
     if(data.v) lastServerVersion = data.v;  // 서버 버전 동기화
@@ -204,10 +231,19 @@ async function loadData(force){
     updatePollIndicator(pollEnabled ? 'idle' : 'paused');
   }catch(err){
     console.error(err);
+    clearTimeout(_slowTimer);
+    const slow = (err && err.name === 'AbortError');
     if(force){
-      document.getElementById('calRoot').innerHTML='<div class="loading">데이터를 불러오지 못했습니다.</div>';
-      document.getElementById('workTableWrap').innerHTML='<div class="empty-state">근무일정을 불러오지 못했습니다.</div>';
-      document.getElementById('leaveList').innerHTML='<div class="empty-state">연차계획을 불러오지 못했습니다.</div>';
+      const msg = slow ? '서버 응답이 너무 느립니다 (일시적일 수 있어요)' : '데이터를 불러오지 못했습니다';
+      document.getElementById('calRoot').innerHTML =
+        `<div class="loading" style="display:flex;flex-direction:column;gap:12px;align-items:center;">
+          <span>${msg}</span>
+          <button class="add-task-btn" onclick="loadData(true)" style="background:var(--accent);color:var(--accent-fg);">다시 시도</button>
+        </div>`;
+      if(lastDataHash===''){
+        document.getElementById('workTableWrap').innerHTML='<div class="empty-state">근무일정을 불러오지 못했습니다.</div>';
+        document.getElementById('leaveList').innerHTML='<div class="empty-state">연차계획을 불러오지 못했습니다.</div>';
+      }
     }
     updatePollIndicator('error');
   }
