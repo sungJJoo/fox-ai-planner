@@ -279,13 +279,10 @@ function buildCalendar(schedule){
       const p=PERSON[schedule[wk]?.[dayKey]];
       const edit=`onclick="openDutyPicker(event,${wk+1},'${dayKey}')" data-week="${wk+1}" data-day="${dayKey}"`;
       if(!p){h+=`<div class="cal-cell cal-cell-edit ${isT?'today':''}" ${edit}><div class="cell-date">${fmt(date)}</div><div class="cell-add">+ 담당</div></div>`;continue;}
-      h+=`<div class="cal-cell cal-cell-edit ${isT?'today':''}" ${edit}>
+      h+=`<div class="cal-cell cal-cell-edit cal-fill fill-${p.cls} ${isT?'today':''}" ${edit}>
         <div class="cell-date">${fmt(date)}</div>
         ${isT?'<div class="today-dot">TODAY</div>':''}
-        <div class="ev ev-${p.cls}">
-          <div class="ev-av eav-${p.cls}">${p.short}</div>
-          <div class="ev-name">${p.full}</div>
-        </div>
+        <div class="cell-name name-${p.cls}">${p.full}</div>
       </div>`;
     }
     row.innerHTML=h;
