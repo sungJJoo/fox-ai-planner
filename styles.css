@@ -125,9 +125,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .cell-add{align-self:center;margin-top:auto;margin-bottom:auto;font-size:11px;font-weight:700;color:var(--faint);opacity:0;transition:opacity .12s;}
 .cal-cell-edit:hover .cell-add{opacity:1;}
 
-/* 컬러 칸 채우기 — 칸 전체 은은한 색 + 가운데 이름 */
-.cal-fill .cell-date{color:inherit;opacity:.55;}
-.cell-name{margin:auto;font-size:16px;font-weight:800;letter-spacing:-.02em;text-align:center;}
+/* 컬러 칸 채우기 — 칸 전체 은은한 색 + 진짜 가운데 이름 */
+.cal-fill{position:relative;align-items:center;justify-content:center;}
+.cal-fill .cell-date{position:absolute;top:8px;left:10px;color:inherit;opacity:.5;}
+.cal-fill .today-dot{position:absolute;top:7px;right:9px;align-self:auto;margin:0;}
+.cell-name{margin:0;font-size:16px;font-weight:800;letter-spacing:-.02em;text-align:center;line-height:1.2;}
 .fill-ysh{background:var(--ysh-lt);} .name-ysh{color:var(--ysh);} .cal-fill.fill-ysh{color:var(--ysh);}
 .fill-psj{background:var(--psj-lt);} .name-psj{color:var(--psj);} .cal-fill.fill-psj{color:var(--psj);}
 .fill-kkh{background:var(--kkh-lt);} .name-kkh{color:var(--kkh);} .cal-fill.fill-kkh{color:var(--kkh);}
