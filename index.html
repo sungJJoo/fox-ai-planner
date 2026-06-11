@@ -88,19 +88,25 @@
           <svg viewBox="0 0 12 12"><line x1="6" y1="2" x2="6" y2="10"/><line x1="2" y1="6" x2="10" y2="6"/></svg>
           업무 추가
         </button>
+        <button class="collapse-btn" id="tasksCollapseBtn" onclick="toggleCollapse('tasks')">
+          <svg viewBox="0 0 12 12"><polyline points="3,4.5 6,7.5 9,4.5"/></svg>
+          <span id="tasksCollapseLabel">접기</span>
+        </button>
       </div>
     </div>
-    <div class="status-bar">
-      <div class="poll-indicator" id="pollIndicator" onclick="togglePolling()" title="자동 갱신 ON/OFF">
-        <span class="poll-dot"></span>
-        <span id="pollLabel">자동 갱신 ON · 30초</span>
+    <div class="collapse-body" id="tasksContent">
+      <div class="status-bar">
+        <div class="poll-indicator" id="pollIndicator" onclick="togglePolling()" title="자동 갱신 ON/OFF">
+          <span class="poll-dot"></span>
+          <span id="pollLabel">자동 갱신 ON · 30초</span>
+        </div>
+        <button class="notif-btn" id="notifBtn" onclick="requestNotifPermission()" title="마감일 당일 브라우저 알림">
+          <svg viewBox="0 0 16 16"><path d="M8 2a4 4 0 0 0-4 4v3l-1.5 2h11L12 9V6a4 4 0 0 0-4-4z"/><path d="M6 13a2 2 0 0 0 4 0"/></svg>
+          <span id="notifLabel">알림 사용</span>
+        </button>
       </div>
-      <button class="notif-btn" id="notifBtn" onclick="requestNotifPermission()" title="마감일 당일 브라우저 알림">
-        <svg viewBox="0 0 16 16"><path d="M8 2a4 4 0 0 0-4 4v3l-1.5 2h11L12 9V6a4 4 0 0 0-4-4z"/><path d="M6 13a2 2 0 0 0 4 0"/></svg>
-        <span id="notifLabel">알림 사용</span>
-      </button>
+      <div class="task-list" id="taskList"></div>
     </div>
-    <div class="task-list" id="taskList"></div>
   </div>
 
   <div class="section-wrap" id="sec-recurring">
@@ -114,9 +120,15 @@
           <svg viewBox="0 0 12 12"><line x1="6" y1="2" x2="6" y2="10"/><line x1="2" y1="6" x2="10" y2="6"/></svg>
           반복 업무 추가
         </button>
+        <button class="collapse-btn" id="recurringCollapseBtn" onclick="toggleCollapse('recurring')">
+          <svg viewBox="0 0 12 12"><polyline points="3,4.5 6,7.5 9,4.5"/></svg>
+          <span id="recurringCollapseLabel">접기</span>
+        </button>
       </div>
     </div>
-    <div class="task-list" id="recurringList"></div>
+    <div class="collapse-body" id="recurringContent">
+      <div class="task-list" id="recurringList"></div>
+    </div>
   </div>
 
   <div class="section-wrap" id="sec-work">
@@ -150,13 +162,13 @@
           <svg viewBox="0 0 12 12"><line x1="6" y1="2" x2="6" y2="10"/><line x1="2" y1="6" x2="10" y2="6"/></svg>
           완료 업무 추가
         </button>
-        <button class="collapse-btn collapsed" id="completedCollapseBtn" onclick="toggleCompleted()">
+        <button class="collapse-btn collapsed" id="completedCollapseBtn" onclick="toggleCollapse('completed')">
           <svg viewBox="0 0 12 12"><polyline points="3,4.5 6,7.5 9,4.5"/></svg>
           <span id="completedCollapseLabel">펼치기</span>
         </button>
       </div>
     </div>
-    <div class="completed-content collapsed" id="completedContent">
+    <div class="completed-content collapse-body collapsed" id="completedContent">
       <div class="completed-controls" id="completedControls"></div>
       <div class="completed-list" id="completedList"></div>
     </div>

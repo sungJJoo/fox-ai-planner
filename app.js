@@ -20,7 +20,6 @@ const taskTimers = {};
 // 완료 업무 상태
 let COMPLETED_TASKS = [];
 let completedFilter = { member: 'all', period: 'all' };
-let completedCollapsed = true;
 
 // 반복 업무 상태
 let RECURRING_TASKS = [];
@@ -1956,16 +1955,42 @@ async function deleteRecurringTaskRow(row, taskName){
   }
 }
 
-// ───────── 완료 업무 리스트 ─────────
-function toggleCompleted(){
-  completedCollapsed = !completedCollapsed;
-  const content = document.getElementById('completedContent');
-  const btn     = document.getElementById('completedCollapseBtn');
-  const label   = document.getElementById('completedCollapseLabel');
-  content.classList.toggle('collapsed', completedCollapsed);
-  btn.classList.toggle('collapsed', completedCollapsed);
-  label.textContent = completedCollapsed ? '펼치기' : '접기';
+// ───────── 섹션 접기/펼치기 (상태 localStorage 저장) ─────────
+const COLLAPSE_MAP = {
+  tasks:     { content:'tasksContent',     btn:'tasksCollapseBtn',     label:'tasksCollapseLabel',     def:false },
+  recurring: { content:'recurringContent', btn:'recurringCollapseBtn', label:'recurringCollapseLabel', def:false },
+  completed: { content:'completedContent',  btn:'completedCollapseBtn',  label:'completedCollapseLabel',  def:true  },
+};
+
+function getCollapsedState(){
+  try{ return JSON.parse(localStorage.getItem('fox_collapsed') || '{}'); }catch(e){ return {}; }
 }
+function applyCollapse(name, collapsed){
+  const m = COLLAPSE_MAP[name]; if(!m) return;
+  const content = document.getElementById(m.content);
+  const btn     = document.getElementById(m.btn);
+  const label   = document.getElementById(m.label);
+  if(!content || !btn || !label) return;
+  content.classList.toggle('collapsed', collapsed);
+  btn.classList.toggle('collapsed', collapsed);
+  label.textContent = collapsed ? '펼치기' : '접기';
+}
+function toggleCollapse(name){
+  const s = getCollapsedState();
+  const cur = (s[name] !== undefined) ? s[name] : COLLAPSE_MAP[name].def;
+  s[name] = !cur;
+  try{ localStorage.setItem('fox_collapsed', JSON.stringify(s)); }catch(e){}
+  applyCollapse(name, s[name]);
+}
+function initCollapse(){
+  const s = getCollapsedState();
+  Object.keys(COLLAPSE_MAP).forEach(name => {
+    const c = (s[name] !== undefined) ? s[name] : COLLAPSE_MAP[name].def;
+    applyCollapse(name, c);
+  });
+}
+
+// ───────── 완료 업무 리스트 ─────────
 
 function buildCompleted(tasks){
   COMPLETED_TASKS = (tasks || []).map(t => ({
@@ -2304,5 +2329,6 @@ window.addEventListener('resize', closeDutyPicker);
 
 // ───── 초기화 ─────
 refreshNotifBtn();
+initCollapse();
 initPageToc();
 loadData(true).then(() => { startPolling(); });

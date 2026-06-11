@@ -399,6 +399,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .completed-count{background:#16a34a;color:#fff;border-radius:999px;font-size:10px;font-weight:800;padding:1px 7px;min-width:18px;text-align:center;}
 .completed-content{transition:opacity .2s;}
 .completed-content.collapsed{display:none;}
+.collapse-body.collapsed{display:none;}
 .completed-controls{display:flex;flex-direction:column;gap:10px;margin-bottom:14px;padding:12px 14px;background:var(--bg);border-radius:12px;}
 .filter-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;}
 .filter-label{font-size:11px;font-weight:700;color:var(--sub);letter-spacing:.5px;margin-right:4px;min-width:42px;}
