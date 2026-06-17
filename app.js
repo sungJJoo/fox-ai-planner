@@ -464,9 +464,14 @@ function buildTasks(tasks){
   if(!tasks.length){root.innerHTML='<div class="empty-state">등록된 업무가 없습니다.</div>';return;}
 
   tasks.sort((a,b)=>{
+    // 1) 완료는 맨 아래
     if(a['완료']!==b['완료']) return a['완료']?1:-1;
-    const da=parseDate(a['마감기한']),db=parseDate(b['마감기한']);
-    return (!da||!db)?0:da-db;
+    // 2) 마감기한 기준: 둘 다 있으면 빠른(=급한) 순, 날짜 있는 게 위, 없는 건 맨 아래
+    const da=parseDate(a['마감기한']), db=parseDate(b['마감기한']);
+    if(da && db){ const diff=da-db; return diff!==0 ? diff : (a.row||0)-(b.row||0); }
+    if(da) return -1;
+    if(db) return 1;
+    return (a.row||0)-(b.row||0);
   });
 
   tasks.forEach(task=>{
