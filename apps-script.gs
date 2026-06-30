@@ -3,7 +3,8 @@
  *
  * 이 파일은 백업용입니다. 실제 실행은 Google Apps Script 편집기 안에서 이루어집니다.
  *
- * 스프레드시트: https://docs.google.com/spreadsheets/d/1JqEEkUFPM2kVNhesqyEeXePtPhmFy9NIiOe0uga8R2w/edit
+ * 스프레드시트(v2): https://docs.google.com/spreadsheets/d/1xVQpFbhE0dojQb38Xu4RCytLkeTg9MZ_E-dvHhIOSM8/edit
+ * ※ v2는 독립 스탠드얼론 스크립트 — 위 SHEET_ID로 시트를 직접 가리킴 (getActiveSpreadsheet 대신 openById)
  *
  * 배포 방법 (변경 후):
  *   1) 이 파일 전체 내용 복사
@@ -44,6 +45,9 @@
  *   GET ?action=deleteMember&name=
  */
 
+// ★ v2 백엔드 — 이 스크립트가 다룰 시트 ID (v2 전용 사본 시트). v1과 완전 분리.
+const SHEET_ID = '1xVQpFbhE0dojQb38Xu4RCytLkeTg9MZ_E-dvHhIOSM8';
+
 /**
  * 변경 버전 카운터 — 모든 mutation 액션 끝에서 호출
  * 클라이언트는 ?action=getHash로 이 값만 받아 변경 감지
@@ -58,7 +62,7 @@ function currentVersion() {
 function doGet(e) {
 
   const action = e.parameter.action;
-  const ss     = SpreadsheetApp.getActiveSpreadsheet();
+  const ss     = SpreadsheetApp.openById(SHEET_ID);
 
   // ── 변경 감지용 가벼운 핑 (폴링이 이걸로 함) ──
   if (action === 'getHash') {
@@ -909,7 +913,7 @@ function doGet(e) {
  * → installTrigger()로 1시간마다 자동 실행됨
  */
 function cleanupCompleted() {
-  const ss    = SpreadsheetApp.getActiveSpreadsheet();
+  const ss    = SpreadsheetApp.openById(SHEET_ID);
   const sheet = ss.getSheetByName('담당표');
   const last  = sheet.getLastRow();
   if (last < 8) return;
@@ -990,7 +994,7 @@ function computeMonthWeeks_(year, month) {
 
 // 근무일정을 지정 월(기본 오늘)로 전환. 날짜만 교체, 패턴/서식 유지.
 function rollWorkScheduleMonth(optDate) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SHEET_ID);
   const ws = ss.getSheetByName('근무일정');
   if (!ws) return { ok: false, error: '근무일정 시트 없음' };
 
