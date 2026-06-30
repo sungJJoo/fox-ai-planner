@@ -17,6 +17,9 @@
 
 ---
 
+> 🌱 이 저장소는 **새 버전(개발 중)** 입니다. 안정 버전(동결)은 [fox-ai-research-schedule](https://github.com/sungJJoo/fox-ai-research-schedule) ([라이브](https://sungjjoo.github.io/fox-ai-research-schedule/)).
+> 새 버전 라이브: https://sungjjoo.github.io/fox-ai-planner/
+
 3인 팀(팀장 1 · 연구원 2)의 **3주 순환 근무 담당표 + 업무 관리 + 근무 일정 + 연간 캘린더**를 한 화면에 모은 웹 대시보드입니다.
 Google Sheets를 DB로, Google Apps Script를 백엔드로, GitHub Pages를 호스팅으로 쓰는 **서버리스 구조**라 운영비가 0원입니다.
 
@@ -201,8 +204,8 @@ mindmap
 **① 처음 1회 설정**
 ```bash
 gh auth login                                                         # GitHub 로그인(브라우저 인증)
-git clone https://github.com/sungJJoo/fox-ai-research-schedule.git    # 저장소 내려받기
-cd fox-ai-research-schedule                                           # 폴더로 이동
+git clone https://github.com/sungJJoo/fox-ai-planner.git    # 저장소 내려받기
+cd fox-ai-planner                                           # 폴더로 이동
 git config --global user.name  "이름"
 git config --global user.email "이메일"
 ```
