@@ -239,8 +239,8 @@ async function loadData(force){
           <button class="add-task-btn" onclick="loadData(true)" style="background:var(--accent);color:var(--accent-fg);">다시 시도</button>
         </div>`;
       if(lastDataHash===''){
-        document.getElementById('workTableWrap').innerHTML='<div class="empty-state">근무일정을 불러오지 못했습니다.</div>';
-        document.getElementById('leaveList').innerHTML='<div class="empty-state">연차계획을 불러오지 못했습니다.</div>';
+        const lv=document.getElementById('leaveList');
+        if(lv) lv.innerHTML='<div class="empty-state">연차계획을 불러오지 못했습니다.</div>';
       }
     }
     updatePollIndicator('error');
@@ -2119,8 +2119,8 @@ function buildWork(weeks){
   LEAVE_EVENTS = [];  // 항상 초기화 (캘린더 자동 표시용)
 
   if(!weeks||!weeks.length){
-    workRoot.innerHTML='<div class="empty-state">근무일정 시트에 데이터를 입력해주세요.</div>';
-    leaveRoot.innerHTML='<div class="empty-state">근무일정에서 자동으로 추출됩니다.</div>';
+    if(workRoot) workRoot.innerHTML='<div class="empty-state">근무일정 시트에 데이터를 입력해주세요.</div>';
+    if(leaveRoot) leaveRoot.innerHTML='<div class="empty-state">근무일정에서 자동으로 추출됩니다.</div>';
     return;
   }
 
@@ -2173,7 +2173,7 @@ function buildWork(weeks){
     </div>`;
   });
 
-  workRoot.innerHTML=html;
+  if(workRoot) workRoot.innerHTML=html;
 
   // 캘린더 자동 표시용 — 연차/반차를 yyyy-MM-dd 키로 저장
   LEAVE_EVENTS = leaveItems
