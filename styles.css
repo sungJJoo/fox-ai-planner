@@ -687,6 +687,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 
 /* ───────── 연간 캘린더 ───────── */
 .modal-calendar{width:min(880px,96vw);max-height:92vh;}
+/* 인라인 캘린더 헤더 (v2: 모달 대신 페이지에 항상 표시) */
+.cal-inline-head{align-items:center;}
+.cal-inline-head .add-task-btn{flex-shrink:0;}
 .cal-nav{display:flex;align-items:center;gap:8px;}
 .cal-nav-btn{width:32px;height:32px;border-radius:9px;border:1px solid var(--border);background:var(--card);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s;}
 .cal-nav-btn:hover{background:var(--head-bg);}

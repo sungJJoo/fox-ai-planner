@@ -182,7 +182,7 @@ async function loadData(force){
   if(force && firstLoad){
     clearTimeout(_slowTimer);
     _slowTimer = setTimeout(() => {
-      const el = document.getElementById('calRoot');
+      const el = document.getElementById('monthGrid');
       if(el && el.querySelector('.loading')) el.querySelector('.loading').textContent = '응답이 느려요 · 다시 시도 중...';
     }, 7000);
   }
@@ -224,10 +224,7 @@ async function loadData(force){
     buildCompleted(completedList);
     buildWork(data.workSchedule||[]);
     buildTodayHero(data.schedule||[], tasks, data.workSchedule||[]);
-    // 캘린더 모달이 열려있으면 다시 렌더
-    if(document.getElementById('calendarModal').classList.contains('show')){
-      renderMonthGrid();
-    }
+    renderMonthGrid();  // 인라인 캘린더 항상 렌더
     updatePollIndicator(pollEnabled ? 'idle' : 'paused');
   }catch(err){
     console.error(err);
@@ -235,7 +232,8 @@ async function loadData(force){
     const slow = (err && err.name === 'AbortError');
     if(force){
       const msg = slow ? '서버 응답이 너무 느립니다 (일시적일 수 있어요)' : '데이터를 불러오지 못했습니다';
-      document.getElementById('calRoot').innerHTML =
+      const mg = document.getElementById('monthGrid');
+      if(mg) mg.innerHTML =
         `<div class="loading" style="display:flex;flex-direction:column;gap:12px;align-items:center;">
           <span>${msg}</span>
           <button class="add-task-btn" onclick="loadData(true)" style="background:var(--accent);color:var(--accent-fg);">다시 시도</button>
@@ -249,44 +247,16 @@ async function loadData(force){
   }
 }
 
-let SCHEDULE_3WK = [];  // 3주 순환 담당표 (클릭 편집용 전역 캐시)
+let SCHEDULE_3WK = [];  // 3주 순환 담당표 데이터 (히어로 '오늘 담당' 계산용)
 
+// v2: 3주 담당표 그리드는 제거. 데이터(SCHEDULE_3WK)와 오늘 배지만 갱신.
 function buildCalendar(schedule){
   SCHEDULE_3WK = schedule || [];
-  const cal=document.getElementById('calRoot');
-  cal.innerHTML='';
   const today=midnight(new Date()),tMon=getMonday(today);
   const diff=Math.round((tMon-midnight(ANCHOR))/864e5);
   const wkIdx=((Math.floor(diff/7)%3)+3)%3;
-  const c1Mon=addDays(tMon,-wkIdx*7);
-  document.getElementById('todayBadge').textContent=`오늘 ${fmtFull(today)} · ${wkIdx+1}주차`;
-
-  const head=document.createElement('div');
-  head.className='cal-head';
-  head.innerHTML='<div class="ch-corner"></div>'+
-    DAYS_KO.map((ko,i)=>`<div class="ch-day"><div class="d-en">${DAYS_EN[i]}</div><span class="d-ko">${ko}</span></div>`).join('');
-  cal.appendChild(head);
-
-  for(let wk=0;wk<3;wk++){
-    const mon=addDays(c1Mon,wk*7);
-    const row=document.createElement('div');
-    row.className='cal-row';
-    let h=`<div class="row-lbl"><div class="lbl-w">WK</div><div class="lbl-n">${wk+1}</div></div>`;
-    for(let d=0;d<5;d++){
-      const date=addDays(mon,d),isT=sameDay(date,today);
-      const dayKey=['월','화','수','목','금'][d];
-      const p=PERSON[schedule[wk]?.[dayKey]];
-      const edit=`onclick="openDutyPicker(event,${wk+1},'${dayKey}')" data-week="${wk+1}" data-day="${dayKey}"`;
-      if(!p){h+=`<div class="cal-cell cal-cell-edit ${isT?'today':''}" ${edit}><div class="cell-date">${fmt(date)}</div><div class="cell-add">+ 담당</div></div>`;continue;}
-      h+=`<div class="cal-cell cal-cell-edit cal-fill fill-${p.cls} ${isT?'today':''}" ${edit}>
-        <div class="cell-date">${fmt(date)}</div>
-        ${isT?'<div class="today-dot">TODAY</div>':''}
-        <div class="cell-name name-${p.cls}">${p.full}</div>
-      </div>`;
-    }
-    row.innerHTML=h;
-    cal.appendChild(row);
-  }
+  const tb=document.getElementById('todayBadge');
+  if(tb) tb.textContent=`오늘 ${fmtFull(today)} · ${wkIdx+1}주차`;
 }
 
 // ── 담당표 칸 클릭 → 멤버 선택 팝오버 ──
@@ -1476,23 +1446,9 @@ const CAL_TYPES = [
   { key:'계획',   cls:'plan'    },
 ];
 
-function openCalendarModal(){
-  const now = new Date();
-  calViewYear  = now.getFullYear();
-  calViewMonth = now.getMonth();
-  // 2026~2027 범위 밖이면 2026으로 보정
-  if(calViewYear < 2026){ calViewYear = 2026; calViewMonth = 0; }
-  if(calViewYear > 2027){ calViewYear = 2027; calViewMonth = 11; }
-  renderMonthGrid();
-  document.getElementById('calendarOverlay').classList.add('show');
-  document.getElementById('calendarModal').classList.add('show');
-  fetch(`${API_URL}?action=getHash`).catch(()=>{});
-}
-
-function closeCalendarModal(){
-  document.getElementById('calendarOverlay').classList.remove('show');
-  document.getElementById('calendarModal').classList.remove('show');
-}
+// v2: 캘린더는 인라인이라 모달 없음. 호환용 stub (Esc 핸들러 등에서 호출돼도 안전).
+function openCalendarModal(){ renderMonthGrid(); }
+function closeCalendarModal(){}
 
 function calendarPrevMonth(){
   calViewMonth--;
@@ -2223,8 +2179,8 @@ function buildWork(weeks){
   LEAVE_EVENTS = leaveItems
     .filter(it => it.date)
     .map(it => ({ dateKey: ymdFromDate(it.date), name: it.name, type: it.type }));
-  if(document.getElementById('calendarModal').classList.contains('show')){
-    renderMonthGrid();
+  if(document.getElementById('monthGrid')){
+    renderMonthGrid();  // 연차 갱신되면 인라인 캘린더 다시 렌더
   }
 
   if(!leaveItems.length){
