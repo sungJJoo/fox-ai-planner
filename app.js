@@ -1,7 +1,7 @@
 const DAYS_KO  = ['월','화','수','목','금'];
 const DAYS_EN  = ['Mon','Tue','Wed','Thu','Fri'];
 const DAYS_ALL = ['월','화','수','목','금','토'];
-const API_URL  = 'https://script.google.com/macros/s/AKfycbxwORlFY6OBJCNKQr0NAD48De04wvBLmCGCcm6KElQyfPc4lMccMfm9EwquH5tpgyvf/exec';
+const API_URL  = 'https://script.google.com/macros/s/AKfycbyxmp3Uo40feKuXIOWRMrS9AqcZMHZs4v3hiDqUBNsfcXHIJ285yybZoLpq988X3lcXcQ/exec';
 const ANCHOR   = new Date(2026,3,27);
 const THIRTY_MIN_MS = 30 * 60 * 1000;
 

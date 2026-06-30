@@ -21,8 +21,9 @@
 - **SW 갱신**: `sw.js`의 `CACHE_VERSION` 상수를 올리면 다음 진입 시 자동 갱신 (skipWaiting + clients.claim)
 - **GAS API는 캐시 안 함**: `script.google.com` 도메인은 SW가 처리 안 하고 브라우저 기본 동작
 
-## 백엔드 (Google Apps Script)
-URL: https://script.google.com/macros/s/AKfycbxpQ2gMHbwXmjfkQFeGCEDDbWL4I4zCwjP6eV7vwjpPPykmKZBslnJGPrSsTyoAtT3L/exec
+## 백엔드 (Google Apps Script) — v2 독립 백엔드
+URL: https://script.google.com/macros/s/AKfycbyxmp3Uo40feKuXIOWRMrS9AqcZMHZs4v3hiDqUBNsfcXHIJ285yybZoLpq988X3lcXcQ/exec
+※ v2는 스탠드얼론 스크립트(시트 바인드 아님). 코드 상단 SHEET_ID 상수로 v2 시트를 openById로 직접 지정. v1과 완전 분리.
 
 ### API 액션
 - GET / — schedule, tasks, members, workSchedule, completedTasks, recurringTasks, v 반환
@@ -60,7 +61,7 @@ URL: https://script.google.com/macros/s/AKfycbxpQ2gMHbwXmjfkQFeGCEDDbWL4I4zCwjP6
 - **preconnect**: <head>에 script.google.com 미리 연결.
 
 ## Google Sheets 구조
-스프레드시트 ID: 1JqEEkUFPM2kVNhesqyEeXePtPhmFy9NIiOe0uga8R2w
+스프레드시트 ID (v2): 1xVQpFbhE0dojQb38Xu4RCytLkeTg9MZ_E-dvHhIOSM8
 
 ### 담당표 탭
 - A1:F4 — 3주 순환 스케줄 (헤더: 주차|월|화|수|목|금)
