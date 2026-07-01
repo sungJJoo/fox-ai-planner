@@ -17,7 +17,8 @@
  *   - 담당표:    A1:F4 = 3주 순환 스케줄 (헤더 + 3주 데이터)
  *                A7:H  = 업무 리스트 (헤더 + 업무행들)
  *                       A=업무, B=담당, C=마감기한, D=세부사항, E=완료(TRUE/FALSE), F=완료시각,
- *                       G=개별완료(JSON: {이름:timestamp}), H=댓글(JSON: [{author,text,ts}])
+ *                       G=개별완료(JSON: {이름:timestamp}), H=댓글(JSON: [{author,text,ts}]), I=프로젝트(프로젝트명)
+ *   - 프로젝트:  프로젝트명 | 담당 | 마감기한 | 설명 (Apps Script가 없으면 자동 생성)
  *   - 멤버:      이름 | 역할 | 색상 (Apps Script가 없으면 자동 생성)
  *   - 근무일정:  날짜행 + 멤버행 반복 (시간/휴무/연차/반차/공휴일)
  *   - 완료 업무: 업무 | 담당 | 마감기한 | 세부사항 | 완료시각 (자동 생성)
@@ -30,9 +31,12 @@
  *   GET ?action=setPersonalComplete&row=N&person=name&value=true/false
  *   GET ?action=addComment&row=N&author=name&text=content  (author 필수 — 익명 불가)
  *   GET ?action=deleteComment&row=N&ts=timestamp
- *   GET ?action=addTask&name=&assignee=&deadline=&detail=
- *   GET ?action=updateTask&row=N&name=&assignee=&deadline=&detail=
+ *   GET ?action=addTask&name=&assignee=&deadline=&detail=&project=
+ *   GET ?action=updateTask&row=N&name=&assignee=&deadline=&detail=&project=
  *   GET ?action=deleteTask&row=N
+ *   GET ?action=addProject&name=&manager=&deadline=&detail=
+ *   GET ?action=updateProject&row=N&name=&manager=&deadline=&detail=  (이름 변경 시 담당표 I열 반영)
+ *   GET ?action=deleteProject&row=N  (안의 업무는 '기타'로 이동)
  *   GET ?action=addCompletedTask&name=&assignee=&deadline=&detail=&completedAt=
  *   GET ?action=addRecurringTask&name=&mon=&tue=&wed=&thu=&fri=&sat=&detail=
  *   GET ?action=updateRecurringTask&row=N&name=&mon=&tue=&wed=&thu=&fri=&sat=&detail=
@@ -150,6 +154,23 @@ function doGet(e) {
       cs.setColumnWidth(5, 280);
     }
     return cs;
+  }
+
+  // ── 프로젝트 시트 자동 생성 ──
+  function ensureProjectSheet() {
+    let ps = ss.getSheetByName('프로젝트');
+    if (!ps) {
+      ps = ss.insertSheet('프로젝트');
+      ps.getRange(1, 1, 1, 4).setValues([
+        ['프로젝트명', '담당', '마감기한', '설명']
+      ]);
+      ps.getRange(1, 1, 1, 4).setFontWeight('bold').setBackground('#f0ede8');
+      ps.setColumnWidth(1, 220);
+      ps.setColumnWidth(2, 90);
+      ps.setColumnWidth(3, 110);
+      ps.setColumnWidth(4, 300);
+    }
+    return ps;
   }
 
   // ── 완료 토글 ──
@@ -306,6 +327,7 @@ function doGet(e) {
     const assignee = e.parameter.assignee || '';
     const deadline = e.parameter.deadline || '';
     const detail   = e.parameter.detail   || '';
+    const project  = e.parameter.project  || '';
 
     if (!name) {
       return ContentService
@@ -322,7 +344,8 @@ function doGet(e) {
     const lastRow = sheet.getLastRow();
     const newRow = Math.max(lastRow + 1, 8);
 
-    sheet.getRange(newRow, 1, 1, 8).setValues([[name, assignee, deadlineValue, detail, false, '', '', '']]);
+    // A~I: 업무|담당|마감|세부|완료|완료시각|개별완료|댓글|프로젝트
+    sheet.getRange(newRow, 1, 1, 9).setValues([[name, assignee, deadlineValue, detail, false, '', '', '', project]]);
 
     if (deadlineValue) {
       sheet.getRange(newRow, 3).setNumberFormat('yyyy-MM-dd');
@@ -342,6 +365,7 @@ function doGet(e) {
     const assignee = e.parameter.assignee || '';
     const deadline = e.parameter.deadline || '';
     const detail   = e.parameter.detail   || '';
+    const project  = e.parameter.project  || '';
 
     if (!row || row < 8) {
       return ContentService
@@ -355,8 +379,9 @@ function doGet(e) {
       if (!isNaN(d.getTime())) deadlineValue = d;
     }
 
-    // A~D만 업데이트 (완료/완료시각은 건드리지 않음)
+    // A~D + I(프로젝트) 업데이트 (완료/완료시각/개별완료/댓글은 건드리지 않음)
     sheet.getRange(row, 1, 1, 4).setValues([[name, assignee, deadlineValue, detail]]);
+    sheet.getRange(row, 9).setValue(project);
 
     if (deadlineValue) {
       sheet.getRange(row, 3).setNumberFormat('yyyy-MM-dd');
@@ -731,6 +756,108 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
+  // ── 프로젝트 추가 ──
+  if (action === 'addProject') {
+    const ps       = ensureProjectSheet();
+    const name     = e.parameter.name    || '';
+    const manager  = e.parameter.manager || '';
+    const deadline = e.parameter.deadline|| '';
+    const detail   = e.parameter.detail  || '';
+
+    if (!name) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: false, error: '프로젝트명 누락' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    let dv = '';
+    if (deadline) { const d = new Date(deadline); if (!isNaN(d.getTime())) dv = d; }
+
+    ps.appendRow([name, manager, dv, detail]);
+    const newRow = ps.getLastRow();
+    if (dv) ps.getRange(newRow, 3).setNumberFormat('yyyy-MM-dd');
+
+    bumpVersion();
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: true, row: newRow }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // ── 프로젝트 수정 (이름 변경 시 담당표 I열도 반영) ──
+  if (action === 'updateProject') {
+    const ps       = ensureProjectSheet();
+    const row      = parseInt(e.parameter.row);
+    const name     = e.parameter.name    || '';
+    const manager  = e.parameter.manager || '';
+    const deadline = e.parameter.deadline|| '';
+    const detail   = e.parameter.detail  || '';
+
+    if (!row || row < 2) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: false, error: '행 번호 오류' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const oldName = String(ps.getRange(row, 1).getValue() || '').trim();
+    let dv = '';
+    if (deadline) { const d = new Date(deadline); if (!isNaN(d.getTime())) dv = d; }
+
+    ps.getRange(row, 1, 1, 4).setValues([[name, manager, dv, detail]]);
+    if (dv) ps.getRange(row, 3).setNumberFormat('yyyy-MM-dd');
+
+    // 담당표 업무 I열(프로젝트) 이름 일괄 치환
+    if (oldName && oldName !== name) {
+      const ds = ss.getSheetByName('담당표');
+      const last = ds.getLastRow();
+      if (last >= 8) {
+        const col = ds.getRange(8, 9, last - 7, 1).getValues();
+        let ch = false;
+        for (let i = 0; i < col.length; i++) {
+          if (String(col[i][0] || '').trim() === oldName) { col[i][0] = name; ch = true; }
+        }
+        if (ch) ds.getRange(8, 9, last - 7, 1).setValues(col);
+      }
+    }
+
+    bumpVersion();
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // ── 프로젝트 삭제 (안의 업무는 '기타'로 이동 = I열 비움) ──
+  if (action === 'deleteProject') {
+    const ps  = ensureProjectSheet();
+    const row = parseInt(e.parameter.row);
+
+    if (!row || row < 2) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: false, error: '행 번호 오류' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const pname = String(ps.getRange(row, 1).getValue() || '').trim();
+    ps.deleteRow(row);
+
+    if (pname) {
+      const ds = ss.getSheetByName('담당표');
+      const last = ds.getLastRow();
+      if (last >= 8) {
+        const col = ds.getRange(8, 9, last - 7, 1).getValues();
+        let ch = false;
+        for (let i = 0; i < col.length; i++) {
+          if (String(col[i][0] || '').trim() === pname) { col[i][0] = ''; ch = true; }
+        }
+        if (ch) ds.getRange(8, 9, last - 7, 1).setValues(col);
+      }
+    }
+
+    bumpVersion();
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   // ── 기본 데이터 읽기 (action 없거나 매칭 안 됨) ──
   const sheet = ss.getSheetByName('담당표');
   const tz    = Session.getScriptTimeZone();
@@ -761,7 +888,7 @@ function doGet(e) {
   };
 
   const scheduleValues = sheet.getRange('A1:F4').getValues();
-  const taskValues     = sheet.getRange('A7:H').getValues().filter(r => r[0]);
+  const taskValues     = sheet.getRange('A7:I').getValues().filter(r => r[0]);
 
   // 근무일정 파싱 (날짜행 + 멤버행 반복 구조)
   const workSheet = ss.getSheetByName('근무일정');
@@ -816,9 +943,7 @@ function doGet(e) {
     return obj;
   });
 
-  const THIRTY_MIN = 30 * 60 * 1000;
-  const now       = new Date().getTime();
-
+  // 프로젝트 모델: 완료 업무도 프로젝트 안에 계속 남겨둠 (자동 숨김/삭제 없음)
   const tasks = taskValues
     .slice(1)
     .map((row, idx) => {
@@ -834,12 +959,8 @@ function doGet(e) {
         완료시각:  completedAt,
         개별완료:  String(row[6] || '').trim(),
         댓글:      String(row[7] || '').trim(),
+        프로젝트:  String(row[8] || '').trim(),
       };
-    })
-    .filter(task => {
-      if (!task['완료']) return true;
-      if (!task['완료시각']) return false;
-      return (now - task['완료시각']) < THIRTY_MIN;
     });
 
   // 완료 업무 아카이브 읽기
@@ -903,8 +1024,26 @@ function doGet(e) {
       .filter(ev => ev.start && ev.title);
   }
 
+  // 프로젝트 읽기
+  const projectSheet = ensureProjectSheet();
+  let projects = [];
+  if (projectSheet.getLastRow() > 1) {
+    const pRaw = projectSheet
+      .getRange(2, 1, projectSheet.getLastRow() - 1, 4)
+      .getValues();
+    projects = pRaw
+      .map((row, idx) => ({
+        row:       idx + 2,
+        프로젝트명: String(row[0] || '').trim(),
+        담당:      String(row[1] || '').trim(),
+        마감기한:  fmtDate(row[2]),
+        설명:      String(row[3] || '').trim(),
+      }))
+      .filter(p => p['프로젝트명']);
+  }
+
   return ContentService
-    .createTextOutput(JSON.stringify({ members, schedule, tasks, workSchedule, completedTasks, recurringTasks, calendarEvents, v: currentVersion() }))
+    .createTextOutput(JSON.stringify({ members, schedule, tasks, workSchedule, completedTasks, recurringTasks, calendarEvents, projects, v: currentVersion() }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -913,6 +1052,9 @@ function doGet(e) {
  * → installTrigger()로 1시간마다 자동 실행됨
  */
 function cleanupCompleted() {
+  // 프로젝트 모델: 완료 업무를 프로젝트 안에 유지하기 위해 자동 아카이브 비활성화.
+  // (기존 트리거가 남아있어도 아무 것도 이동/삭제하지 않음)
+  return;
   const ss    = SpreadsheetApp.openById(SHEET_ID);
   const sheet = ss.getSheetByName('담당표');
   const last  = sheet.getLastRow();

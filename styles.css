@@ -184,6 +184,32 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .section-sub{font-size:12px;color:var(--sub);margin-top:3px;}
 
 .task-list{display:flex;flex-direction:column;gap:10px;}
+
+/* ───────── 프로젝트 카드 ───────── */
+.project-card{border:1px solid var(--border);border-radius:16px;background:var(--card);padding:16px 18px;}
+.project-card.project-done{background:var(--card-soft);}
+.project-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
+.project-head-main{min-width:0;flex:1;}
+.project-title-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.project-name{font-size:16px;font-weight:800;letter-spacing:-.01em;}
+.project-card.project-done .project-name{color:var(--sub);}
+.project-badge-done{font-size:11px;font-weight:800;color:#fff;background:#22c55e;border-radius:999px;padding:2px 9px;}
+.project-meta{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:6px;font-size:12px;color:var(--sub);}
+.project-pm{display:inline-flex;align-items:center;gap:5px;font-weight:700;color:var(--text);}
+.project-deadline{font-weight:700;color:var(--sub);}
+.project-desc{color:var(--faint);font-weight:500;}
+.project-head-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.project-add-btn{font-family:inherit;font-size:12px;font-weight:700;color:var(--text);background:var(--card-soft);border:1px solid var(--border);border-radius:9px;padding:6px 11px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:background .15s;}
+.project-add-btn:hover{background:var(--head-bg);}
+.project-add-btn svg{width:11px;height:11px;stroke:currentColor;stroke-width:2;stroke-linecap:round;fill:none;}
+.project-progress{display:flex;align-items:center;gap:10px;margin:12px 0 2px;}
+.project-progress-track{flex:1;height:6px;border-radius:999px;background:var(--head-bg);overflow:hidden;}
+.project-progress-fill{height:100%;border-radius:999px;background:var(--accent);transition:width .3s;}
+.project-progress-fill.full{background:#22c55e;}
+.project-progress-text{font-size:11px;font-weight:700;color:var(--sub);white-space:nowrap;}
+.project-body{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
+.project-empty{font-size:12px;color:var(--faint);font-weight:600;padding:4px 2px;}
+
 .task-item{border:1px solid var(--border);border-radius:14px;padding:14px 16px;background:var(--card-soft);display:flex;gap:14px;align-items:flex-start;transition:opacity .2s;}
 .task-item.urgent{border:2px solid #ef4444;background:var(--soft-red);}
 .task-item.overdue{border:2px solid #991b1b;background:#fee2e2;}
@@ -513,6 +539,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   .task-actions{opacity:1;}
   .task-action-btn{width:30px;height:30px;}
   .task-check{width:22px;height:22px;}
+
+  /* 프로젝트 카드 */
+  .project-card{padding:13px 14px;}
+  .project-name{font-size:15px;}
+  .project-head-actions{width:100%;justify-content:flex-end;}
 
   /* 상단 버튼들 */
   .add-task-btn{font-size:11px;padding:7px 11px;}

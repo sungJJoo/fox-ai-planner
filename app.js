@@ -13,6 +13,7 @@ const COLOR_SLOTS = [
 
 let PERSON = {};
 let MEMBERS_LIST = [];
+let PROJECTS_LIST = [];        // 프로젝트 목록 (시트 '프로젝트' 탭)
 let overdueTasksCache = [];
 let pendingReload = false;     // 모달 닫을 때 전체 새로고침 필요 여부
 const taskTimers = {};
@@ -205,7 +206,9 @@ async function loadData(force){
     const completedList = data.completedTasks || [];
     const recurringList = data.recurringTasks || [];
     const calendarList  = data.calendarEvents || [];
-    const newHash       = hashTasks(tasks) + '|' + (data.workSchedule||[]).length + '|' + completedList.length + '|' + hashTasks(recurringList) + '|cal' + calendarList.length + calendarList.map(e=>e.row+e.start+e.end+e.title+e.type).join(',');
+    const projectList   = data.projects || [];
+    PROJECTS_LIST = projectList;
+    const newHash       = hashTasks(tasks) + '|' + (data.workSchedule||[]).length + '|' + completedList.length + '|' + hashTasks(recurringList) + '|cal' + calendarList.length + calendarList.map(e=>e.row+e.start+e.end+e.title+e.type).join(',') + '|proj' + projectList.map(p=>p.row+'·'+(p['프로젝트명']||'')+'·'+(p['담당']||'')+'·'+(p['마감기한']||'')+'·'+(p['설명']||'')).join(',');
 
     // 폴링이고 변경 없으면 렌더 스킵
     if(!force && newHash === lastDataHash){
@@ -408,35 +411,51 @@ function buildTodayHero(schedule, tasks, workSchedule){
     </div>`;
 }
 
+// 업무들을 프로젝트별로 묶어 카드로 렌더 (프로젝트 = 안의 업무 전부 완료 시 자동 완료)
 function buildTasks(tasks){
   const today=midnight(new Date());
+  const now = Date.now();
   const root=document.getElementById('taskList');
   root.innerHTML='';
 
+  // 누락(기한 지난 미완료) 캐시 + 배지
   overdueTasksCache = tasks.filter(t => {
     if(t['완료']) return false;
     const dl = parseDate(t['마감기한']);
     return dl && dl < today;
   });
-
   const btn = document.getElementById('overdueBtn');
   const cnt = document.getElementById('overdueCount');
   if(overdueTasksCache.length > 0){btn.style.display='flex';cnt.textContent=overdueTasksCache.length;}
   else{btn.style.display='none';}
 
-  const now = Date.now();
-  tasks = tasks.filter(t => {
-    if(!t['완료']) return true;
-    if(!t['완료시각']) return false;
-    return (now - t['완료시각']) < THIRTY_MIN_MS;
+  // 프로젝트별 그룹핑 (프로젝트명 없으면 '기타')
+  const groups = {};
+  tasks.forEach(t => {
+    const key = String(t['프로젝트']||'').trim() || '기타';
+    (groups[key] = groups[key] || []).push(t);
   });
 
-  if(!tasks.length){root.innerHTML='<div class="empty-state">등록된 업무가 없습니다.</div>';return;}
+  // 표시 순서: 등록된 프로젝트(시트 순) → 이름만 있는 프로젝트 → '기타' 맨 뒤
+  const projByName = {};
+  const order = [];
+  PROJECTS_LIST.forEach(p => {
+    const n = String(p['프로젝트명']||'').trim();
+    if(!n) return;
+    projByName[n] = p;
+    if(order.indexOf(n) < 0) order.push(n);
+  });
+  Object.keys(groups).forEach(n => { if(n!=='기타' && order.indexOf(n)<0) order.push(n); });
+  if(groups['기타'] && groups['기타'].length) order.push('기타');
 
-  tasks.sort((a,b)=>{
-    // 1) 완료는 맨 아래
+  if(!order.length){
+    root.innerHTML='<div class="empty-state">등록된 프로젝트가 없습니다. “프로젝트 추가”로 시작하세요.</div>';
+    fireDeadlineNotifications(tasks);
+    return;
+  }
+
+  const sortTasks = (list)=>list.sort((a,b)=>{
     if(a['완료']!==b['완료']) return a['완료']?1:-1;
-    // 2) 마감기한 기준: 둘 다 있으면 빠른(=급한) 순, 날짜 있는 게 위, 없는 건 맨 아래
     const da=parseDate(a['마감기한']), db=parseDate(b['마감기한']);
     if(da && db){ const diff=da-db; return diff!==0 ? diff : (a.row||0)-(b.row||0); }
     if(da) return -1;
@@ -444,103 +463,147 @@ function buildTasks(tasks){
     return (a.row||0)-(b.row||0);
   });
 
-  tasks.forEach(task=>{
-    const dl   = parseDate(task['마감기한']);
-    const done = !!task['완료'];
-    const row  = task['row'];
-    const safeTaskName = (task['업무']||'').replace(/'/g,'').replace(/\\/g,'');
-    const assignees = getAssigneeList(task);
-    const isMulti = assignees.length > 1;
-    const personal = parsePersonalComplete(task['개별완료']);
-    const comments = parseComments(task['댓글']);
-    const commentCount = comments.length;
+  order.forEach(pname=>{
+    const meta  = projByName[pname];
+    const isEtc = (pname === '기타');
+    const list  = sortTasks((groups[pname]||[]).slice());
+    const total = list.length;
+    const doneCount = list.filter(t=>!!t['완료']).length;
+    const allDone = total>0 && doneCount===total;
+    const pct = total ? Math.round(doneCount/total*100) : 0;
 
-    let state='', badge='';
-    if(!done && dl){
-      const diff = Math.floor((dl-today)/86400000);
-      badge = buildCountdownBadge(diff);
-      if(diff === 0)      state = 'urgent';
-      else if(diff < 0)   state = 'overdue';
-    }
-    if(done) state='done';
+    // PM + 마감
+    const pm  = meta ? String(meta['담당']||'').trim() : '';
+    const pmP = PERSON[pm];
+    const pmHtml = pm
+      ? `<span class="project-pm"><span class="mini-av av-${pmP?pmP.cls:'kkh'}">${pmP?pmP.short:pm.slice(-2)}</span>${pm}</span>`
+      : '';
+    const pdl = meta ? parseDate(meta['마감기한']) : null;
+    let pBadge='';
+    if(!allDone && pdl){ const diff=Math.floor((pdl-today)/86400000); pBadge=buildCountdownBadge(diff); }
+    const pdlHtml = pdl ? `<span class="project-deadline">~${fmtDeadline(pdl)}</span>` : '';
 
-    const el=document.createElement('div');
-    el.className=`task-item ${state}`;
-    el.dataset.row=row;
+    const safePname = pname.replace(/'/g,'').replace(/\\/g,'');
+    const addBtn = `<button class="project-add-btn" title="이 프로젝트에 업무 추가" onclick="event.stopPropagation();openTaskModal(undefined,null,'${safePname}')"><svg viewBox="0 0 12 12"><line x1="6" y1="2" x2="6" y2="10"/><line x1="2" y1="6" x2="10" y2="6"/></svg>업무 추가</button>`;
+    const editBtn = (meta && !isEtc)
+      ? `<button class="task-action-btn" title="프로젝트 수정" onclick="event.stopPropagation();openProjectModal(${meta.row})"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`
+      : '';
 
-    const editBtnHtml=`<button class="task-action-btn" title="수정" onclick="event.stopPropagation();openTaskModal(${row})"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`;
-    const delBtnHtml=`<button class="task-action-btn btn-del" title="삭제" onclick="event.stopPropagation();deleteTaskRow(${row},'${safeTaskName}')"><svg viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6 l-1,14 a2,2 0 0 1 -2,2 H8 a2,2 0 0 1 -2,-2 L5,6"/><path d="M10 11v6M14 11v6"/></svg></button>`;
-    const commentBtnHtml=`<button class="task-action-btn${commentCount>0?' has-comments':''}" title="댓글${commentCount>0?' ('+commentCount+')':''}" onclick="event.stopPropagation();openCommentModal(${row},'${safeTaskName}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>${commentCount>0?`<span class="comment-badge">${commentCount}</span>`:''}</button>`;
-
-    if(isMulti){
-      const doneCount = assignees.filter(a=>isPersonDone(personal,a)).length;
-      const allDone   = doneCount === assignees.length;
-      if(allDone) el.classList.add('done');
-
-      const personChecksHtml = assignees.map(name=>{
-        const p = PERSON[name];
-        const cls   = p ? p.cls  : 'kkh';
-        const short = p ? p.short : (name.length>=2?name.slice(-2):name);
-        const pd    = isPersonDone(personal, name);
-        const safeName = name.replace(/'/g,'').replace(/"/g,'');
-        return `<div class="person-check-row${pd?' done':''}" data-person="${name.replace(/"/g,'&quot;')}" onclick="event.stopPropagation();togglePersonalComplete(${row},'${safeName}',${pd})">
-          <div class="person-check-box${pd?' checked':''}"><svg viewBox="0 0 12 12"><polyline points="1.5,6 4.5,9.5 10.5,2.5"/></svg></div>
-          <span class="mini-av av-${cls}">${short}</span>
-          <span class="person-check-name">${name}</span>
-        </div>`;
-      }).join('');
-
-      el.innerHTML=`
-        <div class="task-progress${allDone?' all-done':''}" title="${doneCount}/${assignees.length}명 완료">
-          ${allDone?'<svg viewBox="0 0 12 12"><polyline points="1.5,6 4.5,9.5 10.5,2.5"/></svg>':`<span>${doneCount}<small>/${assignees.length}</small></span>`}
-        </div>
-        <div class="task-body">
-          <div class="task-top">
-            <div class="task-name">${task['업무']}${badge}</div>
-            <div class="task-deadline">${dl?fmtDeadline(dl):'-'}</div>
+    const card=document.createElement('div');
+    card.className='project-card'+(allDone?' project-done':'');
+    card.innerHTML=`
+      <div class="project-head">
+        <div class="project-head-main">
+          <div class="project-title-row">
+            <span class="project-name">${pname}</span>
+            ${allDone?'<span class="project-badge-done">완료</span>':pBadge}
           </div>
-          <div class="task-person-checks">${personChecksHtml}</div>
-          ${task['세부사항']?`<div class="task-desc">${task['세부사항']}</div>`:''}
+          <div class="project-meta">
+            ${pmHtml}
+            ${pdlHtml}
+            ${(meta&&meta['설명'])?`<span class="project-desc">${meta['설명']}</span>`:''}
+          </div>
         </div>
-        <div class="task-actions">${commentBtnHtml}${editBtnHtml}${delBtnHtml}</div>`;
+        <div class="project-head-actions">${addBtn}${editBtn}</div>
+      </div>
+      <div class="project-progress">
+        <div class="project-progress-track"><div class="project-progress-fill${allDone?' full':''}" style="width:${pct}%"></div></div>
+        <span class="project-progress-text">${doneCount}/${total} 완료</span>
+      </div>
+      <div class="project-body"></div>`;
+
+    const body = card.querySelector('.project-body');
+    if(!total){
+      body.innerHTML='<div class="project-empty">아직 등록된 업무가 없습니다.</div>';
     }else{
-      el.innerHTML=`
-        <div class="task-check ${done?'checked':''}" title="완료 토글">
-          <svg viewBox="0 0 12 12"><polyline points="1.5,6 4.5,9.5 10.5,2.5"/></svg>
-        </div>
-        <div class="task-body">
-          <div class="task-top">
-            <div class="task-name">${task['업무']}${badge}</div>
-            <div class="task-deadline">${dl?fmtDeadline(dl):'-'}</div>
-          </div>
-          <div class="task-manager">담당 · ${task['담당']}</div>
-          <div class="task-desc">${task['세부사항']||''}</div>
-        </div>
-        <div class="task-actions">${commentBtnHtml}${editBtnHtml}${delBtnHtml}</div>`;
-
-      const checkEl = el.querySelector('.task-check');
-      checkEl.onclick = () => toggleTask(checkEl, el, row, done);
+      list.forEach(task => body.appendChild(createTaskEl(task, today, now)));
     }
-
-    root.appendChild(el);
-
-    // 완료 업무: 재렌더 시 남은 시간만큼 타이머 복원 (폴링 재렌더 후 고아 타이머 방지)
-    if(done && task['완료시각']){
-      if(taskTimers[row]) clearTimeout(taskTimers[row]);
-      const remaining = THIRTY_MIN_MS - (now - task['완료시각']);
-      if(remaining > 0){
-        taskTimers[row] = setTimeout(()=>{
-          el.style.transition='opacity .6s';
-          el.style.opacity='0';
-          setTimeout(()=>el.remove(), 650);
-          showToast('완료 항목이 자동 삭제되었습니다');
-        }, remaining);
-      }
-    }
+    root.appendChild(card);
   });
 
-  // 마감 임박 알림 발송 (있다면)
   fireDeadlineNotifications(tasks);
+}
+
+// 개별 업무 아이템 DOM 생성 (프로젝트 카드 내부에 삽입)
+function createTaskEl(task, today, now){
+  const dl   = parseDate(task['마감기한']);
+  const done = !!task['완료'];
+  const row  = task['row'];
+  const safeTaskName = (task['업무']||'').replace(/'/g,'').replace(/\\/g,'');
+  const assignees = getAssigneeList(task);
+  const isMulti = assignees.length > 1;
+  const personal = parsePersonalComplete(task['개별완료']);
+  const comments = parseComments(task['댓글']);
+  const commentCount = comments.length;
+
+  let state='', badge='';
+  if(!done && dl){
+    const diff = Math.floor((dl-today)/86400000);
+    badge = buildCountdownBadge(diff);
+    if(diff === 0)      state = 'urgent';
+    else if(diff < 0)   state = 'overdue';
+  }
+  if(done) state='done';
+
+  const el=document.createElement('div');
+  el.className=`task-item ${state}`;
+  el.dataset.row=row;
+
+  const editBtnHtml=`<button class="task-action-btn" title="수정" onclick="event.stopPropagation();openTaskModal(${row})"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`;
+  const delBtnHtml=`<button class="task-action-btn btn-del" title="삭제" onclick="event.stopPropagation();deleteTaskRow(${row},'${safeTaskName}')"><svg viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6 l-1,14 a2,2 0 0 1 -2,2 H8 a2,2 0 0 1 -2,-2 L5,6"/><path d="M10 11v6M14 11v6"/></svg></button>`;
+  const commentBtnHtml=`<button class="task-action-btn${commentCount>0?' has-comments':''}" title="댓글${commentCount>0?' ('+commentCount+')':''}" onclick="event.stopPropagation();openCommentModal(${row},'${safeTaskName}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>${commentCount>0?`<span class="comment-badge">${commentCount}</span>`:''}</button>`;
+
+  if(isMulti){
+    const doneCount = assignees.filter(a=>isPersonDone(personal,a)).length;
+    const allDone   = doneCount === assignees.length;
+    if(allDone) el.classList.add('done');
+
+    const personChecksHtml = assignees.map(name=>{
+      const p = PERSON[name];
+      const cls   = p ? p.cls  : 'kkh';
+      const short = p ? p.short : (name.length>=2?name.slice(-2):name);
+      const pd    = isPersonDone(personal, name);
+      const safeName = name.replace(/'/g,'').replace(/"/g,'');
+      return `<div class="person-check-row${pd?' done':''}" data-person="${name.replace(/"/g,'&quot;')}" onclick="event.stopPropagation();togglePersonalComplete(${row},'${safeName}',${pd})">
+        <div class="person-check-box${pd?' checked':''}"><svg viewBox="0 0 12 12"><polyline points="1.5,6 4.5,9.5 10.5,2.5"/></svg></div>
+        <span class="mini-av av-${cls}">${short}</span>
+        <span class="person-check-name">${name}</span>
+      </div>`;
+    }).join('');
+
+    el.innerHTML=`
+      <div class="task-progress${allDone?' all-done':''}" title="${doneCount}/${assignees.length}명 완료">
+        ${allDone?'<svg viewBox="0 0 12 12"><polyline points="1.5,6 4.5,9.5 10.5,2.5"/></svg>':`<span>${doneCount}<small>/${assignees.length}</small></span>`}
+      </div>
+      <div class="task-body">
+        <div class="task-top">
+          <div class="task-name">${task['업무']}${badge}</div>
+          <div class="task-deadline">${dl?fmtDeadline(dl):'-'}</div>
+        </div>
+        <div class="task-person-checks">${personChecksHtml}</div>
+        ${task['세부사항']?`<div class="task-desc">${task['세부사항']}</div>`:''}
+      </div>
+      <div class="task-actions">${commentBtnHtml}${editBtnHtml}${delBtnHtml}</div>`;
+  }else{
+    el.innerHTML=`
+      <div class="task-check ${done?'checked':''}" title="완료 토글">
+        <svg viewBox="0 0 12 12"><polyline points="1.5,6 4.5,9.5 10.5,2.5"/></svg>
+      </div>
+      <div class="task-body">
+        <div class="task-top">
+          <div class="task-name">${task['업무']}${badge}</div>
+          <div class="task-deadline">${dl?fmtDeadline(dl):'-'}</div>
+        </div>
+        <div class="task-manager">담당 · ${task['담당']||'-'}</div>
+        ${task['세부사항']?`<div class="task-desc">${task['세부사항']}</div>`:''}
+      </div>
+      <div class="task-actions">${commentBtnHtml}${editBtnHtml}${delBtnHtml}</div>`;
+
+    const checkEl = el.querySelector('.task-check');
+    checkEl.onclick = () => toggleTask(checkEl, el, row, done);
+  }
+
+  return el;
 }
 
 function fmtDeadline(d){
@@ -582,25 +645,9 @@ async function toggleTask(checkEl, itemEl, row, currentDone){
     checkEl.classList.remove('loading-spin');
     checkEl.style.pointerEvents='';
 
-    if(newValue){
-      checkEl.classList.add('checked');
-      itemEl.classList.remove('urgent','overdue');
-      itemEl.classList.add('done');
-      taskTimers[row] = setTimeout(()=>{
-        itemEl.style.transition='opacity .6s';
-        itemEl.style.opacity='0';
-        setTimeout(()=>itemEl.remove(), 650);
-        showToast('완료 항목이 자동 삭제되었습니다');
-      }, THIRTY_MIN_MS);
-    }else{
-      checkEl.classList.remove('checked');
-      itemEl.classList.remove('done');
-      if(taskTimers[row]){clearTimeout(taskTimers[row]);delete taskTimers[row];}
-    }
-
-    itemEl.dataset.done = newValue?'true':'false';
-    checkEl.onclick = () => toggleTask(checkEl, itemEl, row, newValue);
-    showToast(newValue?'✓ 완료 처리 — 30분 후 자동 삭제':'↩ 완료 취소 · 시각 기록 삭제됨');
+    // 프로젝트 진행률·자동완료 상태 갱신 위해 전체 재렌더
+    buildTasks(currentTasksCache);
+    showToast(newValue?'✓ 완료 처리':'↩ 완료 취소');
   }catch(err){
     console.error(err);
     checkEl.classList.remove('loading-spin');
@@ -885,6 +932,7 @@ function showToast(msg, isError=false){
 // ───────── 업무 CRUD 모달 ─────────
 let editingTaskRow = null;     // null = 추가 모드, 숫자 = 수정 모드
 let taskModalMode  = 'add';    // 'add' | 'edit' | 'completed-add'
+let taskModalProject = '';     // 업무가 속한 프로젝트명 (추가 시 프리셋, 수정 시 유지)
 let currentTasksCache = [];    // 수정 시 기존 값을 찾기 위한 캐시
 let selectedAssignees = new Set();  // 담당자 다중 선택 상태
 
@@ -948,9 +996,11 @@ function setAssigneeFromString(s){
   renderAssigneePicker();
 }
 
-function openTaskModal(rowOrMode, extra){
+function openTaskModal(rowOrMode, extra, project){
   // rowOrMode: 'completed' | 'recurring' | 숫자(편집) | undefined(추가)
   // extra: 편집 모드일 때 'recurring' 이면 반복 업무 편집
+  // project: 추가 모드에서 소속 프로젝트명 프리셋
+  taskModalProject = project || '';
   if(rowOrMode === 'completed'){
     taskModalMode  = 'completed-add';
     editingTaskRow = null;
@@ -980,8 +1030,9 @@ function openTaskModal(rowOrMode, extra){
 
   if(taskModalMode === 'edit'){
     const t = currentTasksCache.find(x => x.row === editingTaskRow);
+    taskModalProject = t ? (t['프로젝트']||'') : '';
     document.getElementById('taskModalTitle').textContent = '업무 수정';
-    subEl.textContent = "시트 '담당표' 탭에 저장됩니다";
+    subEl.textContent = taskModalProject ? `프로젝트 “${taskModalProject}”의 업무` : "시트 '담당표' 탭에 저장됩니다";
     document.getElementById('taskName').value     = t ? (t['업무']||'') : '';
     setAssigneeFromString(t ? (t['담당']||'') : '');
     document.getElementById('taskDeadline').value = t ? toDateInputValue(t['마감기한']) : '';
@@ -1028,7 +1079,7 @@ function openTaskModal(rowOrMode, extra){
     completedInput.value = local.toISOString().slice(0,16);
   } else {
     document.getElementById('taskModalTitle').textContent = '업무 추가';
-    subEl.textContent = "시트 '담당표' 탭 8행 이하에 저장됩니다";
+    subEl.textContent = taskModalProject ? `프로젝트 “${taskModalProject}”에 업무 추가` : "시트 '담당표' 탭 8행 이하에 저장됩니다";
     document.getElementById('taskName').value     = '';
     setAssigneeFromString('');
     document.getElementById('taskDeadline').value = '';
@@ -1049,6 +1100,112 @@ function closeTaskModal(){
   document.getElementById('taskOverlay').classList.remove('show');
   document.getElementById('taskModal').classList.remove('show');
   editingTaskRow = null;
+}
+
+// ───────── 프로젝트 모달 ─────────
+let editingProjectRow = null;   // null = 추가, 숫자 = 수정
+let selectedProjectPM = '';     // 선택된 담당(PM) 이름
+
+function renderProjectPMPicker(){
+  const box = document.getElementById('projectPMPicker');
+  if(!box) return;
+  let html = '';
+  Object.values(PERSON).forEach(p => {
+    const active = p.full === selectedProjectPM ? 'active' : '';
+    const safe = p.full.replace(/'/g,'').replace(/"/g,'');
+    html += `<button type="button" class="pick-chip ${active}" onclick="pickProjectPM('${safe}')"><span class="mini-av av-${p.cls}">${p.short}</span>${p.full}</button>`;
+  });
+  html += `<button type="button" class="pick-chip ${selectedProjectPM?'':'active'}" onclick="pickProjectPM('')">없음</button>`;
+  box.innerHTML = html;
+}
+function pickProjectPM(name){
+  selectedProjectPM = name || '';
+  renderProjectPMPicker();
+}
+
+function openProjectModal(row){
+  editingProjectRow = (typeof row === 'number') ? row : null;
+  const isEdit = editingProjectRow !== null;
+  const p = isEdit ? PROJECTS_LIST.find(x=>x.row===editingProjectRow) : null;
+
+  document.getElementById('projectModalTitle').textContent = isEdit ? '프로젝트 수정' : '프로젝트 추가';
+  document.getElementById('projectName').value     = p ? (p['프로젝트명']||'') : '';
+  document.getElementById('projectDeadline').value = p ? toDateInputValue(p['마감기한']).slice(0,10) : '';
+  document.getElementById('projectDetail').value   = p ? (p['설명']||'') : '';
+  selectedProjectPM = p ? (p['담당']||'') : '';
+  renderProjectPMPicker();
+  document.getElementById('projectDeleteBtn').style.display = isEdit ? 'inline-flex' : 'none';
+
+  document.getElementById('projectOverlay').classList.add('show');
+  document.getElementById('projectModal').classList.add('show');
+  setTimeout(()=>document.getElementById('projectName').focus(), 100);
+  fetch(`${API_URL}?action=getHash`).catch(()=>{});
+}
+function closeProjectModal(){
+  document.getElementById('projectOverlay').classList.remove('show');
+  document.getElementById('projectModal').classList.remove('show');
+  editingProjectRow = null;
+}
+
+async function saveProject(){
+  const name     = document.getElementById('projectName').value.trim();
+  const manager  = selectedProjectPM || '';
+  const deadline = document.getElementById('projectDeadline').value.trim();
+  const detail   = document.getElementById('projectDetail').value.trim();
+  if(!name){ showToast('프로젝트명을 입력해주세요', true); return; }
+
+  const btn = document.getElementById('projectSaveBtn');
+  btn.disabled = true; const orig = btn.textContent; btn.textContent = '저장 중...';
+  const isEdit  = editingProjectRow !== null;
+  const eRow    = editingProjectRow;
+  const oldName = isEdit ? String((PROJECTS_LIST.find(x=>x.row===eRow)||{})['프로젝트명']||'') : '';
+  closeProjectModal();
+
+  try{
+    const params = new URLSearchParams({ action: isEdit?'updateProject':'addProject', name, manager, deadline, detail });
+    if(isEdit) params.set('row', eRow);
+    const res  = await fetch(`${API_URL}?${params.toString()}`);
+    const json = await res.json();
+    if(!json.ok) throw new Error(json.error||'error');
+
+    if(isEdit){
+      const idx = PROJECTS_LIST.findIndex(x=>x.row===eRow);
+      if(idx>=0) PROJECTS_LIST[idx] = { ...PROJECTS_LIST[idx], 프로젝트명:name, 담당:manager, 마감기한:deadlineToShort(deadline), 설명:detail };
+      if(oldName && oldName!==name){
+        currentTasksCache = currentTasksCache.map(t => (String(t['프로젝트']||'').trim()===oldName.trim()) ? {...t, 프로젝트:name} : t);
+      }
+    }else{
+      PROJECTS_LIST.push({ row: json.row, 프로젝트명:name, 담당:manager, 마감기한:deadlineToShort(deadline), 설명:detail });
+    }
+    buildTasks(currentTasksCache);
+    showToast(isEdit?'✓ 프로젝트가 수정되었습니다':'✓ 프로젝트가 추가되었습니다');
+  }catch(err){
+    showToast('⚠ 저장 실패: '+err.message+' (새로고침 후 확인)', true);
+    loadData(true).catch(()=>{});
+  }finally{
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+
+async function deleteCurrentProject(){
+  if(editingProjectRow === null) return;
+  const eRow = editingProjectRow;
+  const p = PROJECTS_LIST.find(x=>x.row===eRow);
+  const pname = p ? String(p['프로젝트명']||'') : '';
+  if(!confirm(`프로젝트 “${pname}”을(를) 삭제할까요?\n안의 업무는 삭제되지 않고 '기타'로 이동합니다.`)) return;
+  closeProjectModal();
+  try{
+    const res  = await fetch(`${API_URL}?action=deleteProject&row=${eRow}`);
+    const json = await res.json();
+    if(!json.ok) throw new Error(json.error||'error');
+    PROJECTS_LIST = PROJECTS_LIST.filter(x=>x.row!==eRow).map(x=> x.row>eRow ? {...x, row:x.row-1} : x);
+    currentTasksCache = currentTasksCache.map(t => (String(t['프로젝트']||'').trim()===pname.trim()) ? {...t, 프로젝트:''} : t);
+    buildTasks(currentTasksCache);
+    showToast('✓ 프로젝트가 삭제되었습니다');
+  }catch(err){
+    showToast('⚠ 삭제 실패 — 새로고침 후 확인', true);
+    loadData(true).catch(()=>{});
+  }
 }
 
 function toDateInputValue(v){
@@ -1122,6 +1279,9 @@ async function saveTask(){
       params.set('assignee', assignee);
       params.set('deadline', deadline);
     }
+    if(action === 'addTask' || action === 'updateTask'){
+      params.set('project', taskModalProject || '');
+    }
     if(isRecurring){
       Object.entries(recDays).forEach(([k,v]) => params.set(k, v));
     }
@@ -1170,6 +1330,7 @@ async function saveTask(){
           업무: name, 담당: assignee,
           마감기한: deadlineToShort(deadline),
           세부사항: detail,
+          프로젝트: taskModalProject || '',
         };
       }
       buildTasks(currentTasksCache);
@@ -1181,6 +1342,7 @@ async function saveTask(){
         마감기한: deadlineToShort(deadline),
         세부사항: detail,
         완료: false, 완료시각: null,
+        프로젝트: taskModalProject || '',
       });
       buildTasks(currentTasksCache);
     }
@@ -1284,19 +1446,6 @@ async function togglePersonalComplete(row, person, currentPersonDone){
   }
 
   buildTasks(currentTasksCache);
-
-  // 전원 완료 시 30분 타이머
-  if(allDone){
-    const taskEl = document.querySelector(`.task-item[data-row="${row}"]`);
-    if(taskEl){
-      taskTimers[row] = setTimeout(()=>{
-        taskEl.style.transition='opacity .6s';
-        taskEl.style.opacity='0';
-        setTimeout(()=>taskEl.remove(), 650);
-        showToast('완료 항목이 자동 삭제되었습니다');
-      }, THIRTY_MIN_MS);
-    }
-  }
 
   showToast(newPersonDone ? `✓ ${person} 완료` : `↩ ${person} 완료 취소`);
 
@@ -1763,7 +1912,7 @@ function updatePollIndicator(state){
 }
 
 function hashTasks(tasks){
-  return tasks.map(t => `${t.row}|${t['업무']}|${t['담당']}|${t['마감기한']}|${t['완료']?1:0}|${t['개별완료']||''}|${t['댓글']||''}`).join('||');
+  return tasks.map(t => `${t.row}|${t['업무']}|${t['담당']}|${t['마감기한']}|${t['완료']?1:0}|${t['개별완료']||''}|${t['댓글']||''}|${t['프로젝트']||''}`).join('||');
 }
 
 // ───────── 브라우저 알림 ─────────
