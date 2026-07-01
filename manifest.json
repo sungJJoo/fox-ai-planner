@@ -1,6 +1,6 @@
 {
-  "name": "FOX AI 연구소 담당표",
-  "short_name": "AI 담당표",
+  "name": "AI 연구소 플래너",
+  "short_name": "AI 플래너",
   "description": "3주 순환 근무 담당표 + 업무 관리 대시보드",
   "lang": "ko",
   "start_url": "./",

@@ -1,8 +1,8 @@
-// FOX AI 연구소 담당표 — Service Worker
+// AI 연구소 플래너 — Service Worker
 // 정적 파일은 stale-while-revalidate, GAS API는 네트워크 only
 // 코드 배포 시 CACHE_VERSION 을 올려서 강제 갱신
 
-const CACHE_VERSION = 'fox-planner-v3';
+const CACHE_VERSION = 'fox-planner-v4';
 const STATIC_ASSETS = [
   './',
   './index.html',

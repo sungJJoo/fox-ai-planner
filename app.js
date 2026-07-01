@@ -2184,32 +2184,34 @@ function buildWork(weeks){
   }
 
   if(!leaveItems.length){
-    leaveRoot.innerHTML='<div class="empty-state">등록된 연차·반차가 없습니다.</div>';
+    if(leaveRoot) leaveRoot.innerHTML='<div class="empty-state">등록된 연차·반차가 없습니다.</div>';
     return;
   }
   leaveItems.sort((a,b)=>a.date-b.date);
-  leaveRoot.innerHTML='';
-  leaveItems.forEach(item=>{
-    const p=PERSON[item.name];
-    const isPast=item.date&&item.date<today&&!sameDay(item.date,today);
-    const daysUntil=item.date?Math.floor((item.date-today)/86400000):null;
-    const isSoon=daysUntil!==null&&daysUntil>=0&&daysUntil<=7;
-    const typeCls=item.type.includes('반차')?'type-반차':'type-연차';
-    leaveRoot.innerHTML+=`<div class="leave-item ${isPast?'leave-past':isSoon?'leave-soon':''}">
-      ${p?`<div class="leave-av av-${p.cls}">${p.short}</div>`
-        :`<div class="leave-av" style="background:#f0ede8;color:var(--sub)">${String(item.name).slice(0,1)}</div>`}
-      <div class="leave-body">
-        <div>
-          <span class="leave-who">${item.name}</span>
-          <span class="leave-type-badge ${typeCls}">${item.type}</span>
-          ${isSoon&&!isPast?`<span class="soon-badge">${daysUntil===0?'오늘':daysUntil+'일 후'}</span>`:''}
+  if(leaveRoot){
+    leaveRoot.innerHTML='';
+    leaveItems.forEach(item=>{
+      const p=PERSON[item.name];
+      const isPast=item.date&&item.date<today&&!sameDay(item.date,today);
+      const daysUntil=item.date?Math.floor((item.date-today)/86400000):null;
+      const isSoon=daysUntil!==null&&daysUntil>=0&&daysUntil<=7;
+      const typeCls=item.type.includes('반차')?'type-반차':'type-연차';
+      leaveRoot.innerHTML+=`<div class="leave-item ${isPast?'leave-past':isSoon?'leave-soon':''}">
+        ${p?`<div class="leave-av av-${p.cls}">${p.short}</div>`
+          :`<div class="leave-av" style="background:#f0ede8;color:var(--sub)">${String(item.name).slice(0,1)}</div>`}
+        <div class="leave-body">
+          <div>
+            <span class="leave-who">${item.name}</span>
+            <span class="leave-type-badge ${typeCls}">${item.type}</span>
+            ${isSoon&&!isPast?`<span class="soon-badge">${daysUntil===0?'오늘':daysUntil+'일 후'}</span>`:''}
+          </div>
+          <div>
+            <div class="leave-date">${item.date?fmt(item.date):''}</div>
+          </div>
         </div>
-        <div>
-          <div class="leave-date">${item.date?fmt(item.date):''}</div>
-        </div>
-      </div>
-    </div>`;
-  });
+      </div>`;
+    });
+  }
 }
 
 // ───────── 다크 모드 ─────────
