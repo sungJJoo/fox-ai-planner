@@ -14,6 +14,16 @@ const COLOR_SLOTS = [
 let PERSON = {};
 let MEMBERS_LIST = [];
 let PROJECTS_LIST = [];        // 프로젝트 목록 (시트 '프로젝트' 탭)
+// 프로젝트 접힘 상태 (localStorage 유지: {프로젝트명: 'open'|'closed'})
+let projCollapseState = (()=>{ try{ return JSON.parse(localStorage.getItem('fox_proj_collapse')||'{}'); }catch(e){ return {}; } })();
+function saveProjCollapse(){ try{ localStorage.setItem('fox_proj_collapse', JSON.stringify(projCollapseState)); }catch(e){} }
+// 프로젝트별 고유 색 슬롯 (이름 해시 → 항상 같은 색). '기타'는 중립 회색.
+const PROJ_PALETTE = ['c4','c5','c6','c7','c8','ysh','psj'];
+function projColorSlot(name){
+  if(name === '기타') return 'kkh';
+  let h=0; for(let i=0;i<name.length;i++) h=(h*31 + name.charCodeAt(i))>>>0;
+  return PROJ_PALETTE[h % PROJ_PALETTE.length];
+}
 let overdueTasksCache = [];
 let pendingReload = false;     // 모달 닫을 때 전체 새로고침 필요 여부
 const taskTimers = {};
@@ -426,7 +436,7 @@ function buildTasks(tasks){
     return (a.row||0)-(b.row||0);
   });
 
-  const makeCard = (pname, collapsed)=>{
+  const makeCard = (pname)=>{
     const meta  = projByName[pname];
     const isEtc = (pname === '기타');
     const list  = sortTasks((groups[pname]||[]).slice());
@@ -434,6 +444,12 @@ function buildTasks(tasks){
     const doneCount = list.filter(t=>!!t['완료']).length;
     const allDone = total>0 && doneCount===total;
     const pct = total ? Math.round(doneCount/total*100) : 0;
+
+    // 접힘 상태: 사용자가 지정한 게 있으면 그것, 없으면 완료 프로젝트는 기본 접힘
+    const state = projCollapseState[pname] || (allDone ? 'closed' : 'open');
+    const collapsed = state === 'closed';
+    // 프로젝트별 고유 색 (이름 기반 → 항상 동일)
+    const slot = projColorSlot(pname);
 
     // PM + 마감
     const pm  = meta ? String(meta['담당']||'').trim() : '';
@@ -451,17 +467,17 @@ function buildTasks(tasks){
     const editBtn = (meta && !isEtc)
       ? `<button class="task-action-btn" title="프로젝트 수정" onclick="event.stopPropagation();openProjectModal(${meta.row})"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`
       : '';
-    const chevron = collapsed
-      ? `<span class="project-chevron"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polyline points="3,4.5 6,7.5 9,4.5"/></svg></span>`
-      : '';
+    const chevron = `<span class="project-chevron"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polyline points="3,4.5 6,7.5 9,4.5"/></svg></span>`;
 
     const card=document.createElement('div');
     card.className='project-card'+(allDone?' project-done':'')+(collapsed?' project-collapsed':'');
+    card.style.borderLeft = `4px solid var(--${slot})`;
     card.innerHTML=`
       <div class="project-head">
         <div class="project-head-main">
           <div class="project-title-row">
             ${chevron}
+            <span class="project-dot" style="background:var(--${slot})"></span>
             <span class="project-name">${pname}</span>
             ${allDone?'<span class="project-badge-done">완료</span>':pBadge}
           </div>
@@ -486,13 +502,13 @@ function buildTasks(tasks){
       list.forEach(task => body.appendChild(createTaskEl(task, today, now)));
     }
 
-    // 아카이브(완료) 카드: 헤더 클릭으로 펼치기/접기 (버튼 클릭은 제외)
-    if(collapsed){
-      card.querySelector('.project-head').addEventListener('click', (e)=>{
-        if(e.target.closest('button')) return;
-        card.classList.toggle('project-collapsed');
-      });
-    }
+    // 헤더 클릭으로 펼치기/접기 (버튼 클릭은 제외) — 상태 저장
+    card.querySelector('.project-head').addEventListener('click', (e)=>{
+      if(e.target.closest('button')) return;
+      const nowCollapsed = card.classList.toggle('project-collapsed');
+      projCollapseState[pname] = nowCollapsed ? 'closed' : 'open';
+      saveProjCollapse();
+    });
     return card;
   };
 
@@ -504,14 +520,14 @@ function buildTasks(tasks){
     (list.length>0 && dc===list.length ? doneOrder : activeOrder).push(pname);
   });
 
-  activeOrder.forEach(pname => root.appendChild(makeCard(pname, false)));
+  activeOrder.forEach(pname => root.appendChild(makeCard(pname)));
 
   if(doneOrder.length){
     const head = document.createElement('div');
     head.className='project-archive-head';
     head.innerHTML=`완료된 프로젝트 <span>${doneOrder.length}</span>`;
     root.appendChild(head);
-    doneOrder.forEach(pname => root.appendChild(makeCard(pname, true)));
+    doneOrder.forEach(pname => root.appendChild(makeCard(pname)));
   }
 
   fireDeadlineNotifications(tasks);

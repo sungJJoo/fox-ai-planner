@@ -222,12 +222,13 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 /* 완료(아카이브) 프로젝트 — 하단에 접어서 표시 */
 .project-archive-head{margin:22px 2px 2px;font-size:12px;font-weight:800;color:var(--sub);display:flex;align-items:center;gap:7px;}
 .project-archive-head span{background:#22c55e;color:#fff;border-radius:999px;font-size:11px;padding:1px 8px;}
-.project-card.project-collapsed .project-head{cursor:pointer;}
-.project-card.project-collapsed .project-progress,
+.project-head{cursor:pointer;}
 .project-card.project-collapsed .project-body{display:none;}
-.project-chevron{display:inline-flex;color:var(--sub);transition:transform .2s;}
+.project-card.project-collapsed .project-progress{margin-bottom:2px;}
+.project-chevron{display:inline-flex;color:var(--sub);transition:transform .2s;flex-shrink:0;}
 .project-card:not(.project-collapsed) .project-chevron{transform:rotate(180deg);}
 .project-chevron svg{width:12px;height:12px;}
+.project-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
 
 .task-item{border:1px solid var(--border);border-radius:14px;padding:14px 16px;background:var(--card-soft);display:flex;gap:14px;align-items:flex-start;transition:opacity .2s;}
 .task-item.urgent{border:2px solid #ef4444;background:var(--soft-red);}
