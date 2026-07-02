@@ -463,7 +463,7 @@ function buildTasks(tasks){
     return (a.row||0)-(b.row||0);
   });
 
-  order.forEach(pname=>{
+  const makeCard = (pname, collapsed)=>{
     const meta  = projByName[pname];
     const isEtc = (pname === '기타');
     const list  = sortTasks((groups[pname]||[]).slice());
@@ -488,13 +488,17 @@ function buildTasks(tasks){
     const editBtn = (meta && !isEtc)
       ? `<button class="task-action-btn" title="프로젝트 수정" onclick="event.stopPropagation();openProjectModal(${meta.row})"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`
       : '';
+    const chevron = collapsed
+      ? `<span class="project-chevron"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polyline points="3,4.5 6,7.5 9,4.5"/></svg></span>`
+      : '';
 
     const card=document.createElement('div');
-    card.className='project-card'+(allDone?' project-done':'');
+    card.className='project-card'+(allDone?' project-done':'')+(collapsed?' project-collapsed':'');
     card.innerHTML=`
       <div class="project-head">
         <div class="project-head-main">
           <div class="project-title-row">
+            ${chevron}
             <span class="project-name">${pname}</span>
             ${allDone?'<span class="project-badge-done">완료</span>':pBadge}
           </div>
@@ -518,8 +522,34 @@ function buildTasks(tasks){
     }else{
       list.forEach(task => body.appendChild(createTaskEl(task, today, now)));
     }
-    root.appendChild(card);
+
+    // 아카이브(완료) 카드: 헤더 클릭으로 펼치기/접기 (버튼 클릭은 제외)
+    if(collapsed){
+      card.querySelector('.project-head').addEventListener('click', (e)=>{
+        if(e.target.closest('button')) return;
+        card.classList.toggle('project-collapsed');
+      });
+    }
+    return card;
+  };
+
+  // 진행 중 vs 완료(전부 완료) 분리 — 완료 프로젝트는 하단에 접어서 아카이브
+  const activeOrder = [], doneOrder = [];
+  order.forEach(pname=>{
+    const list = groups[pname]||[];
+    const dc = list.filter(t=>!!t['완료']).length;
+    (list.length>0 && dc===list.length ? doneOrder : activeOrder).push(pname);
   });
+
+  activeOrder.forEach(pname => root.appendChild(makeCard(pname, false)));
+
+  if(doneOrder.length){
+    const head = document.createElement('div');
+    head.className='project-archive-head';
+    head.innerHTML=`완료된 프로젝트 <span>${doneOrder.length}</span>`;
+    root.appendChild(head);
+    doneOrder.forEach(pname => root.appendChild(makeCard(pname, true)));
+  }
 
   fireDeadlineNotifications(tasks);
 }
@@ -1635,6 +1665,20 @@ function eventsOnDate(dateKey){
       list.push({ ...ev, holiday:false });
     }
   });
+  // 프로젝트 마감 (자동, 읽기 전용)
+  PROJECTS_LIST.forEach(p => {
+    const d = parseDate(p['마감기한']);
+    if(d && ymdFromDate(d) === dateKey){
+      list.push({ projEvent:true, title:String(p['프로젝트명']||''), pm:String(p['담당']||'') });
+    }
+  });
+  // 업무 마감 (자동, 읽기 전용)
+  currentTasksCache.forEach(t => {
+    const d = parseDate(t['마감기한']);
+    if(d && ymdFromDate(d) === dateKey){
+      list.push({ taskEvent:true, title:String(t['업무']||''), who:String(t['담당']||''), done:!!t['완료'], proj:String(t['프로젝트']||'') });
+    }
+  });
   return list;
 }
 
@@ -1699,8 +1743,8 @@ function renderMonthGrid(){
       return `<div class="mg-bar mg-bar-${cls}${rnd}" title="${tip}" onclick="event.stopPropagation();openEventEditor(${ev.row})">${showTitle?ev.title:'&nbsp;'}</div>`;
     }).join('');
 
-    // 하루짜리 칩 (공휴일·연차/반차·단일 일정)
-    const singleHtml = singles.slice(0,3).map(ev => {
+    // 하루짜리 칩 (공휴일·연차/반차·프로젝트/업무 마감·단일 일정)
+    const singleHtml = singles.slice(0,5).map(ev => {
       if(ev.holiday){
         return `<div class="mg-chip mg-chip-holiday" title="${ev.title}">${ev.title}</div>`;
       }
@@ -1710,11 +1754,22 @@ function renderMonthGrid(){
         const dot = p ? `<span class="mg-leave-dot av-${p.cls}"></span>` : '';
         return `<div class="mg-chip ${lvCls}" title="${ev.title}">${dot}${ev.title}</div>`;
       }
+      if(ev.projEvent){
+        const safe = String(ev.title||'').replace(/"/g,'&quot;');
+        const pm = ev.pm ? ' · '+ev.pm : '';
+        return `<div class="mg-chip mg-chip-project" title="프로젝트 마감: ${safe}${pm}">${ev.title}</div>`;
+      }
+      if(ev.taskEvent){
+        const safe = String(ev.title||'').replace(/"/g,'&quot;');
+        const who = ev.who ? ' · '+ev.who : '';
+        const proj = ev.proj ? ' ['+String(ev.proj).replace(/"/g,'&quot;')+']' : '';
+        return `<div class="mg-chip mg-chip-task${ev.done?' done':''}" title="업무 마감: ${safe}${who}${proj}">${ev.title}</div>`;
+      }
       const cls = typeCls(ev.type);
       const safeTitle = String(ev.title||'').replace(/"/g,'&quot;');
       return `<div class="mg-chip mg-chip-${cls}" title="${safeTitle}${ev.memo?' — '+String(ev.memo).replace(/"/g,'&quot;'):''}" onclick="event.stopPropagation();openEventEditor(${ev.row})">${ev.title}</div>`;
     }).join('');
-    const hidden = singles.length > 3 ? singles.length - 3 : 0;
+    const hidden = singles.length > 5 ? singles.length - 5 : 0;
     const moreCount = hidden ? `<div class="mg-more">+${hidden}</div>` : '';
 
     html += `<div class="mg-cell ${isToday?'mg-today':''}" onclick="openEventEditor(null,'${dateKey}')">
