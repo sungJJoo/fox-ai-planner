@@ -340,19 +340,12 @@ function buildTodayHero(schedule, tasks, workSchedule){
   const wkIdx = ((Math.floor(diff/7) % 3) + 3) % 3;
   const wname = ['일','월','화','수','목','금','토'][dow];
 
-  // 오늘 담당 (월~금만)
-  let duty = '';
-  if(dow >= 1 && dow <= 5){
-    const dayKey = ['월','화','수','목','금'][dow-1];
-    duty = String((schedule[wkIdx]||{})[dayKey] || '').trim();
-  }
-
-  // 오늘 마감 (미완료)
+  // 오늘 마감 (미완료) — 업무명 표시용 배열
   const dueToday = (tasks||[]).filter(t => {
     if(t['완료']) return false;
     const dl = parseDate(t['마감기한']);
     return dl && sameDay(dl, today);
-  }).length;
+  });
 
   // 누락 (기한 지난 미완료) — 이미 계산된 캐시 사용
   const overdue = overdueTasksCache.length;
@@ -374,11 +367,6 @@ function buildTodayHero(schedule, tasks, workSchedule){
   });
 
   // ── 렌더 헬퍼 ──
-  const dutyP = PERSON[duty];
-  const dutyHtml = duty
-    ? `<span class="hero-person"><span class="mini-av av-${dutyP?dutyP.cls:'kkh'}">${dutyP?dutyP.short:duty.slice(-2)}</span>${duty}</span>`
-    : `<span class="hero-empty">담당 없음</span>`;
-
   const offHtml = offList.length
     ? offList.map(o => {
         const p = PERSON[o.name];
@@ -386,20 +374,23 @@ function buildTodayHero(schedule, tasks, workSchedule){
       }).join('')
     : `<span class="hero-empty">없음</span>`;
 
+  const deadlineHtml = dueToday.length
+    ? `<div class="hero-deadline-list">${dueToday.map(t=>{
+        const who = String(t['담당']||'').trim();
+        return `<span class="hero-deadline-name">${t['업무']}${who?`<span class="hero-deadline-who">${who}</span>`:''}</span>`;
+      }).join('')}</div>`
+    : `<div class="hero-deadline-empty">오늘 마감 업무 없음</div>`;
+
   hero.innerHTML = `
     <div class="hero-date">
       <div class="hero-date-big">${today.getMonth()+1}월 ${today.getDate()}일 <span class="hero-dow">${wname}요일</span></div>
       <div class="hero-date-sub">AI 연구소 ${wkIdx+1}주차</div>
     </div>
-    <div class="hero-stats">
-      <div class="hero-stat">
-        <div class="hero-stat-icon">${HERO_ICONS.duty}</div>
-        <div class="hero-stat-body"><div class="hero-stat-label">오늘 담당</div><div class="hero-stat-val">${dutyHtml}</div></div>
-      </div>
-      <div class="hero-stat">
-        <div class="hero-stat-icon">${HERO_ICONS.deadline}</div>
-        <div class="hero-stat-body"><div class="hero-stat-label">오늘 마감</div><div class="hero-stat-val ${dueToday?'':'hero-zero'}">${dueToday}건</div></div>
-      </div>
+    <div class="hero-deadline ${dueToday.length?'has':'none'}">
+      <div class="hero-stat-label">오늘 마감</div>
+      ${deadlineHtml}
+    </div>
+    <div class="hero-stats hero-stats-2">
       <div class="hero-stat">
         <div class="hero-stat-icon">${HERO_ICONS.off}</div>
         <div class="hero-stat-body"><div class="hero-stat-label">오늘 휴무</div><div class="hero-stat-val">${offHtml}</div></div>
@@ -1653,12 +1644,6 @@ function eventsOnDate(dateKey){
   if(HOLIDAYS[dateKey]){
     list.push({ holiday:true, title:HOLIDAYS[dateKey], type:'공휴일' });
   }
-  // 근무일정에서 자동 추출한 연차/반차 (읽기 전용)
-  LEAVE_EVENTS.forEach(lv => {
-    if(lv.dateKey === dateKey){
-      list.push({ leave:true, name:lv.name, type:lv.type, title:`${lv.name} ${lv.type}` });
-    }
-  });
   // 사용자 일정 (기간 포함)
   CALENDAR_EVENTS.forEach(ev => {
     if(dateKey >= ev.start && dateKey <= (ev.end || ev.start)){

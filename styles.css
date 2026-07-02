@@ -98,9 +98,18 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .hero-person .mini-av{width:22px;height:22px;font-size:9px;margin-right:0;}
 .hero-off-tag{font-size:10px;font-weight:700;color:var(--soft-yellow-tx);background:var(--soft-yellow);border:1px solid var(--soft-yellow-br);border-radius:999px;padding:1px 7px;margin-left:2px;}
 .hero-empty{font-size:14px;font-weight:600;color:var(--faint);}
+/* 오늘 마감 강조 블록 */
+.hero-deadline{flex:1 1 240px;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:8px;padding:0 20px;border-right:1px solid var(--border);}
+.hero-deadline-list{display:flex;flex-wrap:wrap;gap:8px;}
+.hero-deadline-name{font-size:19px;font-weight:800;letter-spacing:-.01em;line-height:1.2;color:var(--soft-red-tx);background:var(--soft-red);border:1px solid var(--soft-red-br);border-radius:11px;padding:6px 13px;display:inline-flex;align-items:center;gap:8px;}
+.hero-deadline-who{font-size:12px;font-weight:700;color:var(--sub);background:var(--card);border:1px solid var(--border);border-radius:999px;padding:1px 8px;}
+.hero-deadline-empty{font-size:15px;font-weight:700;color:var(--faint);}
+.hero-stats-2{display:flex;gap:14px;flex:0 0 auto;}
 @media(max-width:860px){
   .hero-stats{grid-template-columns:repeat(2,minmax(0,1fr));}
   .hero-date{border-right:none;border-bottom:1px solid var(--border);padding-right:0;padding-bottom:12px;width:100%;}
+  .hero-deadline{border-right:none;border-bottom:1px solid var(--border);padding:0 0 12px;width:100%;flex-basis:100%;}
+  .hero-stats-2{width:100%;}
 }
 
 .members{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:20px;}
