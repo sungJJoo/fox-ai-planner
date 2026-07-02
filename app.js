@@ -350,30 +350,6 @@ function buildTodayHero(schedule, tasks, workSchedule){
   // 누락 (기한 지난 미완료) — 이미 계산된 캐시 사용
   const overdue = overdueTasksCache.length;
 
-  // 오늘 휴무/연차/반차
-  const offList = [];
-  (workSchedule||[]).forEach(week => {
-    DAYS_ALL.forEach(d => {
-      const dobj = parseDate(week.dates[d]);
-      if(dobj && sameDay(dobj, today)){
-        Object.keys(week.members).forEach(name => {
-          const val = String(week.members[name][d]||'').trim();
-          if(val==='휴무' || val==='연차' || val.includes('반차')){
-            offList.push({ name, val });
-          }
-        });
-      }
-    });
-  });
-
-  // ── 렌더 헬퍼 ──
-  const offHtml = offList.length
-    ? offList.map(o => {
-        const p = PERSON[o.name];
-        return `<span class="hero-person"><span class="mini-av av-${p?p.cls:'kkh'}">${p?p.short:o.name.slice(-2)}</span>${o.name}<span class="hero-off-tag">${o.val}</span></span>`;
-      }).join('')
-    : `<span class="hero-empty">없음</span>`;
-
   const deadlineHtml = dueToday.length
     ? `<div class="hero-deadline-list">${dueToday.map(t=>{
         const who = String(t['담당']||'').trim();
@@ -391,10 +367,6 @@ function buildTodayHero(schedule, tasks, workSchedule){
       ${deadlineHtml}
     </div>
     <div class="hero-stats hero-stats-2">
-      <div class="hero-stat">
-        <div class="hero-stat-icon">${HERO_ICONS.off}</div>
-        <div class="hero-stat-body"><div class="hero-stat-label">오늘 휴무</div><div class="hero-stat-val">${offHtml}</div></div>
-      </div>
       <div class="hero-stat ${overdue?'hero-stat-alert':''}" ${overdue?'onclick="openOverdueModal()" role="button" title="누락 업무 보기"':''}>
         <div class="hero-stat-icon">${HERO_ICONS.overdue}</div>
         <div class="hero-stat-body"><div class="hero-stat-label">누락 업무</div><div class="hero-stat-val ${overdue?'hero-danger':'hero-zero'}">${overdue}건</div></div>
