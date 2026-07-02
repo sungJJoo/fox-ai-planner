@@ -17,6 +17,8 @@ let PROJECTS_LIST = [];        // 프로젝트 목록 (시트 '프로젝트' 탭
 // 프로젝트 접힘 상태 (localStorage 유지: {프로젝트명: 'open'|'closed'})
 let projCollapseState = (()=>{ try{ return JSON.parse(localStorage.getItem('fox_proj_collapse')||'{}'); }catch(e){ return {}; } })();
 function saveProjCollapse(){ try{ localStorage.setItem('fox_proj_collapse', JSON.stringify(projCollapseState)); }catch(e){} }
+const PROJECT_HIDE_MS = 60 * 60 * 1000;  // 완료 프로젝트 자동 숨김까지 시간 (1시간)
+let projHideTimer = null;                 // 다음 자동 숨김 시점 재렌더 타이머
 // 프로젝트별 고유 색 슬롯 (이름 해시 → 항상 같은 색). '기타'는 중립 회색.
 const PROJ_PALETTE = ['c4','c5','c6','c7','c8','ysh','psj'];
 function projColorSlot(name){
@@ -512,12 +514,24 @@ function buildTasks(tasks){
     return card;
   };
 
-  // 진행 중 vs 완료(전부 완료) 분리 — 완료 프로젝트는 하단에 접어서 아카이브
+  // 진행 중 vs 완료 분리 — 완료 프로젝트는 하단에 접어서 아카이브,
+  // 완료 1시간 지난 프로젝트는 목록에서 자동 숨김 (시트에는 그대로 보존)
+  const nowTs = Date.now();
+  let nextHideAt = Infinity;
   const activeOrder = [], doneOrder = [];
   order.forEach(pname=>{
     const list = groups[pname]||[];
+    const total = list.length;
     const dc = list.filter(t=>!!t['완료']).length;
-    (list.length>0 && dc===list.length ? doneOrder : activeOrder).push(pname);
+    const allDone = total>0 && dc===total;
+    if(allDone){
+      const completedAt = Math.max(0, ...list.map(t=> t['완료시각']||0));
+      if(completedAt && (nowTs - completedAt) >= PROJECT_HIDE_MS) return;  // 1시간 지남 → 숨김
+      if(completedAt) nextHideAt = Math.min(nextHideAt, completedAt + PROJECT_HIDE_MS);
+      doneOrder.push(pname);
+    }else{
+      activeOrder.push(pname);
+    }
   });
 
   activeOrder.forEach(pname => root.appendChild(makeCard(pname)));
@@ -528,6 +542,13 @@ function buildTasks(tasks){
     head.innerHTML=`완료된 프로젝트 <span>${doneOrder.length}</span>`;
     root.appendChild(head);
     doneOrder.forEach(pname => root.appendChild(makeCard(pname)));
+  }
+
+  // 다음 자동 숨김 시점에 재렌더 예약 (그 시각이 되면 화면에서 사라지도록)
+  if(projHideTimer){ clearTimeout(projHideTimer); projHideTimer = null; }
+  if(nextHideAt !== Infinity){
+    const delay = Math.max(1000, nextHideAt - Date.now());
+    projHideTimer = setTimeout(()=> buildTasks(currentTasksCache), delay);
   }
 
   fireDeadlineNotifications(tasks);
