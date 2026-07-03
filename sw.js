@@ -2,7 +2,7 @@
 // 정적 파일은 stale-while-revalidate, GAS API는 네트워크 only
 // 코드 배포 시 CACHE_VERSION 을 올려서 강제 갱신
 
-const CACHE_VERSION = 'fox-planner-v17';
+const CACHE_VERSION = 'fox-planner-v18';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const STATIC_ASSETS = [
   './app.js',
   './manifest.json',
   './logo.png',
+  './logo-mark.png',
 ];
 
 self.addEventListener('install', e => {

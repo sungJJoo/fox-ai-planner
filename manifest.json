@@ -11,8 +11,8 @@
   "theme_color": "#1c1c1e",
   "icons": [
     {
-      "src": "logo.png",
-      "sizes": "any",
+      "src": "logo-mark.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     }
