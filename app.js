@@ -158,11 +158,112 @@ function parseComments(raw){
 
 function renderMembersBar(){
   const bar = document.getElementById('membersBar');
-  bar.innerHTML = Object.values(PERSON).map(p => `
-    <div class="member">
+  bar.innerHTML = Object.values(PERSON).map(p => {
+    const safe = p.full.replace(/'/g,'').replace(/"/g,'');
+    return `
+    <div class="member" role="button" tabindex="0" title="${p.full} 업무 현황 보기" onclick="openMemberModal('${safe}')">
       <div class="av av-${p.cls}">${p.short}</div>
       <div><div class="m-name">${p.full}</div><div class="m-role">${p.role}</div></div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+
+// ───────── 연구원별 업무 현황 모달 ─────────
+// 특정 멤버 기준 업무 완료 여부 ('done' | 'pending')
+function memberTaskStatus(task, name){
+  const assignees = getAssigneeList(task);
+  if(assignees.length > 1){
+    const personal = parsePersonalComplete(task['개별완료']);
+    return (task['완료'] || isPersonDone(personal, name)) ? 'done' : 'pending';
+  }
+  return task['완료'] ? 'done' : 'pending';
+}
+
+function openMemberModal(name){
+  const p = PERSON[name];
+  if(!p) return;
+  const today = midnight(new Date());
+
+  const mine = currentTasksCache.filter(t => getAssigneeList(t).includes(name));
+  const total = mine.length;
+  let done = 0, overdue = 0;
+  mine.forEach(t => {
+    if(memberTaskStatus(t, name) === 'done'){ done++; }
+    else {
+      const dl = parseDate(t['마감기한']);
+      if(dl && dl < today) overdue++;
+    }
+  });
+  const pending = total - done;
+  const pct = total ? Math.round(done/total*100) : 0;
+
+  document.getElementById('memberModalTitle').textContent = `${p.full} 업무 현황`;
+  document.getElementById('memberModalSub').textContent = p.role ? `${p.role} · 담당 업무 ${total}건` : `담당 업무 ${total}건`;
+
+  // 프로젝트별 그룹
+  const groups = {};
+  mine.forEach(t => { const k = String(t['프로젝트']||'').trim() || '기타'; (groups[k]=groups[k]||[]).push(t); });
+
+  let body = `
+    <div class="mem-hero">
+      <div class="av av-${p.cls} mem-av">${p.short}</div>
+      <div class="mem-hero-info">
+        <div class="mem-hero-name">${p.full}</div>
+        <div class="mem-hero-role">${p.role||''}</div>
+      </div>
+      <div class="mem-hero-pct">
+        <div class="mem-pct-num">${pct}<span>%</span></div>
+        <div class="mem-pct-label">완료율</div>
+      </div>
+    </div>
+    <div class="mem-progress-track"><div class="mem-progress-fill${total&&done===total?' full':''}" style="width:${pct}%"></div></div>
+    <div class="mem-stats">
+      <div class="mem-stat"><div class="mem-stat-num">${total}</div><div class="mem-stat-label">전체</div></div>
+      <div class="mem-stat"><div class="mem-stat-num mem-done">${done}</div><div class="mem-stat-label">완료</div></div>
+      <div class="mem-stat"><div class="mem-stat-num">${pending}</div><div class="mem-stat-label">진행중</div></div>
+      <div class="mem-stat"><div class="mem-stat-num ${overdue?'mem-danger':''}">${overdue}</div><div class="mem-stat-label">마감 지남</div></div>
+    </div>`;
+
+  if(!total){
+    body += `<div class="empty-state">담당 중인 업무가 없습니다.</div>`;
+  }else{
+    body += `<div class="mem-tasklist">`;
+    Object.keys(groups).forEach(pn => {
+      const slot = projColorSlot(pn);
+      const list = groups[pn].slice().sort((a,b)=>{
+        const da = memberTaskStatus(a,name)==='done', db = memberTaskStatus(b,name)==='done';
+        if(da!==db) return da?1:-1;
+        const pa=parseDate(a['마감기한']), pb=parseDate(b['마감기한']);
+        if(pa&&pb) return pa-pb; if(pa) return -1; if(pb) return 1; return 0;
+      });
+      const gdone = list.filter(t=>memberTaskStatus(t,name)==='done').length;
+      body += `<div class="mem-proj">
+        <div class="mem-proj-head"><span class="project-dot" style="background:var(--${slot})"></span><span class="mem-proj-name">${pn}</span><span class="mem-proj-count">${gdone}/${list.length}</span></div>`;
+      list.forEach(t => {
+        const st = memberTaskStatus(t,name);
+        const dl = parseDate(t['마감기한']);
+        let badge = '';
+        if(st!=='done' && dl){ const diff=Math.floor((dl-today)/86400000); badge=buildCountdownBadge(diff); }
+        body += `<div class="mem-task ${st}">
+          <span class="mem-task-check ${st==='done'?'on':''}">${st==='done'?'<svg viewBox="0 0 12 12"><polyline points="1.5,6 4.5,9.5 10.5,2.5"/></svg>':''}</span>
+          <span class="mem-task-name">${t['업무']}</span>
+          ${badge}
+          <span class="mem-task-dl">${dl?fmtDeadline(dl):''}</span>
+        </div>`;
+      });
+      body += `</div>`;
+    });
+    body += `</div>`;
+  }
+
+  document.getElementById('memberModalBody').innerHTML = body;
+  document.getElementById('memberOverlay').classList.add('show');
+  document.getElementById('memberModal').classList.add('show');
+}
+
+function closeMemberModal(){
+  document.getElementById('memberOverlay').classList.remove('show');
+  document.getElementById('memberModal').classList.remove('show');
 }
 
 function renderVal(val){
@@ -923,7 +1024,7 @@ async function deleteMember(idx, name){
 }
 
 document.addEventListener('keydown', e=>{
-  if(e.key==='Escape'){closeOverdueModal();closeSettings();closeTaskModal();closeCommentModal();closeEventEditor();closeCalendarModal();closeDutyPicker();}
+  if(e.key==='Escape'){closeOverdueModal();closeSettings();closeTaskModal();closeCommentModal();closeEventEditor();closeCalendarModal();closeDutyPicker();closeMemberModal();closeProjectModal();}
   // 단축키: N → 업무 추가 (입력 필드 포커스 중이면 무시)
   if(e.key==='n' || e.key==='N'){
     const t = e.target;

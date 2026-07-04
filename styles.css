@@ -113,7 +113,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 }
 
 .members{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:20px;}
-.member{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;}
+.member{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background .15s,border-color .15s,transform .1s;}
+.member:hover{background:var(--head-bg);border-color:var(--faint);}
+.member:active{transform:scale(.985);}
 .av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;}
 .av-ysh{background:var(--ysh-lt);color:var(--ysh);}
 .av-psj{background:var(--psj-lt);color:var(--psj);}
@@ -125,6 +127,38 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .av-c8{background:var(--c8-lt);color:var(--c8);}
 .m-name{font-size:14px;font-weight:700;}
 .m-role{font-size:11px;color:var(--faint);margin-top:2px;}
+
+/* ───────── 연구원별 업무 현황 모달 ───────── */
+.mem-hero{display:flex;align-items:center;gap:14px;margin-bottom:14px;}
+.mem-av{width:52px;height:52px;font-size:16px;flex-shrink:0;}
+.mem-hero-info{flex:1;min-width:0;}
+.mem-hero-name{font-size:18px;font-weight:800;}
+.mem-hero-role{font-size:12px;color:var(--sub);margin-top:2px;}
+.mem-hero-pct{text-align:right;flex-shrink:0;}
+.mem-pct-num{font-size:28px;font-weight:800;line-height:1;letter-spacing:-.02em;}
+.mem-pct-num span{font-size:15px;font-weight:700;color:var(--sub);}
+.mem-pct-label{font-size:11px;color:var(--sub);margin-top:2px;}
+.mem-progress-track{height:8px;border-radius:999px;background:var(--head-bg);overflow:hidden;margin-bottom:16px;}
+.mem-progress-fill{height:100%;border-radius:999px;background:var(--accent);transition:width .3s;}
+.mem-progress-fill.full{background:#22c55e;}
+.mem-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;}
+.mem-stat{background:var(--card-soft);border:1px solid var(--border);border-radius:12px;padding:10px 6px;text-align:center;}
+.mem-stat-num{font-size:20px;font-weight:800;}
+.mem-stat-num.mem-done{color:#22c55e;}
+.mem-stat-num.mem-danger{color:var(--soft-red-tx);}
+.mem-stat-label{font-size:11px;color:var(--sub);margin-top:2px;}
+.mem-tasklist{display:flex;flex-direction:column;gap:16px;}
+.mem-proj-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.mem-proj-name{font-size:13px;font-weight:800;}
+.mem-proj-count{margin-left:auto;font-size:11px;font-weight:700;color:var(--sub);}
+.mem-task{display:flex;align-items:center;gap:9px;padding:8px 11px;border:1px solid var(--border);border-radius:10px;background:var(--card-soft);margin-bottom:6px;}
+.mem-task.done{opacity:.5;}
+.mem-task.done .mem-task-name{text-decoration:line-through;}
+.mem-task-check{width:18px;height:18px;border-radius:5px;border:2px solid var(--faint);flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.mem-task-check.on{background:#22c55e;border-color:#22c55e;}
+.mem-task-check svg{width:11px;height:11px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.mem-task-name{flex:1;min-width:0;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mem-task-dl{font-size:11px;color:var(--sub);white-space:nowrap;flex-shrink:0;}
 
 .cal{background:var(--card);border:1px solid var(--border);border-radius:20px;overflow:hidden;}
 .cal-head{display:grid;grid-template-columns:80px repeat(5,1fr);background:var(--head-bg);}
