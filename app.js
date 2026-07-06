@@ -179,9 +179,12 @@ function memberTaskStatus(task, name){
   return task['완료'] ? 'done' : 'pending';
 }
 
-function openMemberModal(name){
+let currentMemberName = null;  // 현재 열린 멤버(새 창 버튼용)
+
+// 멤버 리포트(제목/부제/본문 HTML) 생성 — 팝업·새 창이 공유
+function buildMemberReport(name){
   const p = PERSON[name];
-  if(!p) return;
+  if(!p) return null;
   const today = midnight(new Date());
 
   const mine = currentTasksCache.filter(t => getAssigneeList(t).includes(name));
@@ -197,8 +200,8 @@ function openMemberModal(name){
   const pending = total - done;
   const pct = total ? Math.round(done/total*100) : 0;
 
-  document.getElementById('memberModalTitle').textContent = `${p.full} 업무 현황`;
-  document.getElementById('memberModalSub').textContent = p.role ? `${p.role} · 담당 업무 ${total}건` : `담당 업무 ${total}건`;
+  const title = `${p.full} 업무 현황`;
+  const sub = p.role ? `${p.role} · 담당 업무 ${total}건` : `담당 업무 ${total}건`;
 
   // 프로젝트별 그룹
   const groups = {};
@@ -256,7 +259,16 @@ function openMemberModal(name){
     body += `</div>`;
   }
 
-  document.getElementById('memberModalBody').innerHTML = body;
+  return { title, sub, body };
+}
+
+function openMemberModal(name){
+  const r = buildMemberReport(name);
+  if(!r) return;
+  currentMemberName = name;
+  document.getElementById('memberModalTitle').textContent = r.title;
+  document.getElementById('memberModalSub').textContent = r.sub;
+  document.getElementById('memberModalBody').innerHTML = r.body;
   document.getElementById('memberOverlay').classList.add('show');
   document.getElementById('memberModal').classList.add('show');
 }
@@ -264,6 +276,24 @@ function openMemberModal(name){
 function closeMemberModal(){
   document.getElementById('memberOverlay').classList.remove('show');
   document.getElementById('memberModal').classList.remove('show');
+}
+
+// 같은 리포트를 별도 창(새 탭)으로 — 앱 styles.css를 그대로 불러 동일 디자인 + 다크모드 반영
+function openMemberWindow(name){
+  name = name || currentMemberName;
+  const r = buildMemberReport(name);
+  if(!r) return;
+  const w = window.open('', '_blank', 'width=600,height=840');
+  if(!w){ showToast('팝업이 차단됐어요 — 브라우저에서 팝업 허용 후 다시 시도', true); return; }
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  w.document.write(`<!doctype html><html lang="ko"${dark?' data-theme="dark"':''}><head><meta charset="utf-8"/>`
+    + `<meta name="viewport" content="width=device-width,initial-scale=1"/>`
+    + `<base href="${document.baseURI}"/><title>${r.title}</title>`
+    + `<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>`
+    + `<link rel="stylesheet" href="styles.css"/>`
+    + `<style>body{background:var(--bg);color:var(--text);margin:0;padding:28px 20px;} .rep{max-width:600px;margin:0 auto;} .rep-head{font-size:12px;color:var(--sub);margin-bottom:14px;}</style>`
+    + `</head><body><div class="rep"><div class="rep-head">FOX AI · 연구원 업무 현황</div>${r.body}</div></body></html>`);
+  w.document.close();
 }
 
 function renderVal(val){
