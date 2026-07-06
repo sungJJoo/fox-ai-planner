@@ -388,6 +388,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .assignee-picker .pick-chip:hover{background:var(--head-bg);}
 .assignee-picker .pick-chip.active{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);}
 .assignee-picker .pick-chip .mini-av{width:18px;height:18px;font-size:9px;margin-right:0;}
+.assignee-picker .dow-chip{min-width:36px;justify-content:center;padding:6px 0;font-weight:700;}
 .assignee-picker .pick-chip.active .mini-av{filter:brightness(1.15);}
 .assignee-picker .pick-divider{width:1px;height:18px;background:var(--border);margin:0 2px;}
 

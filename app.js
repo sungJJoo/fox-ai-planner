@@ -48,6 +48,7 @@ let calViewYear  = new Date().getFullYear();
 let calViewMonth = new Date().getMonth(); // 0~11
 let editingEventRow = null;               // null=추가, 숫자=수정
 let selectedEventType = '계획';
+let selectedEventDays = new Set();        // 일정 반복 요일(0=일~6=토) · 비면 매일
 
 // 2026~2027 대한민국 공휴일 (코드 내장, 읽기 전용)
 // 음력·대체공휴일은 공식 월력요항 기준
@@ -375,7 +376,7 @@ async function loadData(force){
     const calendarList  = data.calendarEvents || [];
     const projectList   = data.projects || [];
     PROJECTS_LIST = projectList;
-    const newHash       = hashTasks(tasks) + '|' + (data.workSchedule||[]).length + '|' + completedList.length + '|' + hashTasks(recurringList) + '|cal' + calendarList.length + calendarList.map(e=>e.row+e.start+e.end+e.title+e.type).join(',') + '|proj' + projectList.map(p=>p.row+'·'+(p['프로젝트명']||'')+'·'+(p['담당']||'')+'·'+(p['마감기한']||'')+'·'+(p['설명']||'')).join(',');
+    const newHash       = hashTasks(tasks) + '|' + (data.workSchedule||[]).length + '|' + completedList.length + '|' + hashTasks(recurringList) + '|cal' + calendarList.length + calendarList.map(e=>e.row+e.start+e.end+e.title+e.type+(e.days||'')).join(',') + '|proj' + projectList.map(p=>p.row+'·'+(p['프로젝트명']||'')+'·'+(p['담당']||'')+'·'+(p['마감기한']||'')+'·'+(p['설명']||'')).join(',');
 
     // 폴링이고 변경 없으면 렌더 스킵
     if(!force && newHash === lastDataHash){
@@ -1808,10 +1809,17 @@ function eventsOnDate(dateKey){
   if(HOLIDAYS[dateKey]){
     list.push({ holiday:true, title:HOLIDAYS[dateKey], type:'공휴일' });
   }
-  // 사용자 일정 (기간 포함)
+  // 사용자 일정 (기간 포함 · 요일 필터: ev.days 있으면 해당 요일에만)
   CALENDAR_EVENTS.forEach(ev => {
     if(dateKey >= ev.start && dateKey <= (ev.end || ev.start)){
-      list.push({ ...ev, holiday:false });
+      const days = String(ev.days||'').trim();
+      if(days){
+        const wd = ymdToDate(dateKey).getDay();  // 0=일 ~ 6=토
+        if(!days.split(',').includes(String(wd))) return;
+        list.push({ ...ev, holiday:false, dayFiltered:true });
+      } else {
+        list.push({ ...ev, holiday:false });
+      }
     }
   });
   // 프로젝트 마감 (자동, 읽기 전용)
@@ -1872,7 +1880,7 @@ function renderMonthGrid(){
     // 여러 날 일정(막대) vs 하루짜리(칩) 분리
     const bars = [], singles = [];
     evs.forEach(ev => {
-      const isMulti = !ev.holiday && !ev.leave && ev.start && ev.end && ev.end > ev.start;
+      const isMulti = !ev.holiday && !ev.leave && !ev.dayFiltered && ev.start && ev.end && ev.end > ev.start;
       (isMulti ? bars : singles).push(ev);
     });
     // 막대는 시작일 순으로 정렬 → 여러 날에 걸쳐 같은 줄(레인)에 표시되도록
@@ -1950,6 +1958,20 @@ function selectEventType(key){
   renderEventTypePicker();
 }
 
+const EVENT_DOW = ['일','월','화','수','목','금','토'];
+function renderEventDaysPicker(){
+  const root = document.getElementById('eventDaysPicker');
+  if(!root) return;
+  root.innerHTML = EVENT_DOW.map((d,i)=>{
+    const active = selectedEventDays.has(i) ? ' active' : '';
+    return `<button type="button" class="pick-chip dow-chip${active}" onclick="toggleEventDay(${i})">${d}</button>`;
+  }).join('');
+}
+function toggleEventDay(i){
+  if(selectedEventDays.has(i)) selectedEventDays.delete(i); else selectedEventDays.add(i);
+  renderEventDaysPicker();
+}
+
 function openEventEditor(row, prefillDate){
   editingEventRow = (typeof row === 'number') ? row : null;
 
@@ -1961,6 +1983,7 @@ function openEventEditor(row, prefillDate){
     document.getElementById('eventEnd').value   = ev ? (ev.end && ev.end !== ev.start ? ev.end : '') : '';
     document.getElementById('eventMemo').value  = ev ? ev.memo : '';
     selectedEventType = ev ? ev.type : '계획';
+    selectedEventDays = new Set((ev && ev.days ? String(ev.days).split(',') : []).filter(x=>x!=='').map(Number));
     document.getElementById('eventDeleteBtn').style.display = 'inline-flex';
   } else {
     document.getElementById('eventModalTitle').textContent = '일정 추가';
@@ -1969,9 +1992,11 @@ function openEventEditor(row, prefillDate){
     document.getElementById('eventEnd').value   = '';
     document.getElementById('eventMemo').value  = '';
     selectedEventType = '계획';
+    selectedEventDays = new Set();
     document.getElementById('eventDeleteBtn').style.display = 'none';
   }
   renderEventTypePicker();
+  renderEventDaysPicker();
 
   document.getElementById('eventOverlay').classList.add('show');
   document.getElementById('eventModal').classList.add('show');
@@ -1990,6 +2015,7 @@ async function saveEvent(){
   let   end   = document.getElementById('eventEnd').value.trim();
   const memo  = document.getElementById('eventMemo').value.trim();
   const type  = selectedEventType;
+  const days  = [...selectedEventDays].sort((a,b)=>a-b).join(',');   // 예: "3" 또는 "1,3"
 
   if(!title){ showToast('제목을 입력해주세요', true); return; }
   if(!start){ showToast('시작일을 선택해주세요', true); return; }
@@ -2003,9 +2029,9 @@ async function saveEvent(){
   let tempObj = null;
   if(eRow){
     const idx = CALENDAR_EVENTS.findIndex(x => x.row === eRow);
-    if(idx >= 0) CALENDAR_EVENTS[idx] = { row:eRow, start, end, title, type, memo };
+    if(idx >= 0) CALENDAR_EVENTS[idx] = { row:eRow, start, end, title, type, memo, days };
   } else {
-    tempObj = { row:-Date.now(), start, end, title, type, memo };  // 임시 행번호
+    tempObj = { row:-Date.now(), start, end, title, type, memo, days };  // 임시 행번호
     CALENDAR_EVENTS.push(tempObj);
   }
   renderMonthGrid();
@@ -2015,7 +2041,7 @@ async function saveEvent(){
   try{
     const params = new URLSearchParams({
       action: eRow ? 'updateCalendarEvent' : 'addCalendarEvent',
-      start, end, title, type, memo,
+      start, end, title, type, memo, days,
     });
     if(eRow) params.set('row', eRow);
 

@@ -143,15 +143,16 @@ function doGet(e) {
     let cs = ss.getSheetByName('캘린더');
     if (!cs) {
       cs = ss.insertSheet('캘린더');
-      cs.getRange(1, 1, 1, 5).setValues([
-        ['시작일', '종료일', '제목', '유형', '메모']
+      cs.getRange(1, 1, 1, 6).setValues([
+        ['시작일', '종료일', '제목', '유형', '메모', '요일']
       ]);
-      cs.getRange(1, 1, 1, 5).setFontWeight('bold').setBackground('#f0ede8');
+      cs.getRange(1, 1, 1, 6).setFontWeight('bold').setBackground('#f0ede8');
       cs.setColumnWidth(1, 110);
       cs.setColumnWidth(2, 110);
       cs.setColumnWidth(3, 220);
       cs.setColumnWidth(4, 80);
       cs.setColumnWidth(5, 280);
+      cs.setColumnWidth(6, 110);
     }
     return cs;
   }
@@ -528,6 +529,7 @@ function doGet(e) {
     const title = e.parameter.title || '';
     const type  = e.parameter.type  || '계획';
     const memo  = e.parameter.memo  || '';
+    const days  = e.parameter.days  || '';   // 반복 요일 (0=일~6=토, 콤마구분). 비면 매일
 
     if (!start || !title) {
       return ContentService
@@ -536,9 +538,10 @@ function doGet(e) {
     }
 
     // 날짜는 문자열(yyyy-MM-dd)로 그대로 저장 (자동 Date 변환 방지 위해 앞에 '를 안 붙이고 plain text)
-    cs.appendRow([start, end || start, title, type, memo]);
+    cs.appendRow([start, end || start, title, type, memo, days]);
     const newRow = cs.getLastRow();
     cs.getRange(newRow, 1, 1, 2).setNumberFormat('@');  // 텍스트 형식 고정
+    cs.getRange(newRow, 6).setNumberFormat('@');        // 요일도 텍스트 고정
 
     bumpVersion();
     return ContentService
@@ -555,6 +558,7 @@ function doGet(e) {
     const title = e.parameter.title || '';
     const type  = e.parameter.type  || '계획';
     const memo  = e.parameter.memo  || '';
+    const days  = e.parameter.days  || '';
 
     if (!row || row < 2 || !start || !title) {
       return ContentService
@@ -562,8 +566,9 @@ function doGet(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
-    cs.getRange(row, 1, 1, 5).setValues([[start, end || start, title, type, memo]]);
+    cs.getRange(row, 1, 1, 6).setValues([[start, end || start, title, type, memo, days]]);
     cs.getRange(row, 1, 1, 2).setNumberFormat('@');
+    cs.getRange(row, 6).setNumberFormat('@');
 
     bumpVersion();
     return ContentService
@@ -1010,7 +1015,7 @@ function doGet(e) {
   let calendarEvents = [];
   if (calendarSheet && calendarSheet.getLastRow() > 1) {
     const calRaw = calendarSheet
-      .getRange(2, 1, calendarSheet.getLastRow() - 1, 5)
+      .getRange(2, 1, calendarSheet.getLastRow() - 1, 6)
       .getDisplayValues();  // 날짜를 화면 표시값(텍스트)으로 읽음
     calendarEvents = calRaw
       .map((row, idx) => ({
@@ -1020,6 +1025,7 @@ function doGet(e) {
         title:  String(row[2] || '').trim(),
         type:   String(row[3] || '').trim() || '계획',
         memo:   String(row[4] || '').trim(),
+        days:   String(row[5] || '').trim(),
       }))
       .filter(ev => ev.start && ev.title);
   }
