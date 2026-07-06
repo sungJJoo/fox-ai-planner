@@ -291,28 +291,13 @@ function buildTeamDashboardBody(){
       </div>
       <div class="mem-progress-track"><div class="mem-progress-fill${teamTotal&&teamDone===teamTotal?' full':''}" style="width:${teamPct}%"></div></div>
     </div>
-    <div class="dash-grid">`;
+    <div class="dash-members-grid">`;
 
+  // 연구원별 상세(완료율·요약 + 프로젝트별 담당 업무 목록) — 개인 리포트 재사용
   members.forEach(p => {
-    const s = computeMemberStats(p.full);
-    html += `
-      <div class="dash-card dash-static">
-        <div class="dash-card-top">
-          <div class="av av-${p.cls} dash-av">${p.short}</div>
-          <div class="dash-card-info">
-            <div class="dash-card-name">${p.full}</div>
-            <div class="dash-card-role">${p.role||''}</div>
-          </div>
-          <div class="dash-card-pct">${s.pct}<span>%</span></div>
-        </div>
-        <div class="mem-progress-track"><div class="mem-progress-fill${s.total&&s.done===s.total?' full':''}" style="width:${s.pct}%"></div></div>
-        <div class="dash-card-stats">
-          <span class="dash-chip"><b>${s.total}</b> 전체</span>
-          <span class="dash-chip dash-chip-done"><b>${s.done}</b> 완료</span>
-          <span class="dash-chip"><b>${s.pending}</b> 진행중</span>
-          <span class="dash-chip ${s.overdue?'dash-chip-danger':''}"><b>${s.overdue}</b> 지남</span>
-        </div>
-      </div>`;
+    const rep = buildMemberReport(p.full);
+    if(!rep) return;
+    html += `<section class="dash-member">${rep.body}</section>`;
   });
   html += `</div>`;
   return { html, teamTotal, teamDone, teamPct };
@@ -328,7 +313,7 @@ function openTeamDashboard(){
     + `<base href="${document.baseURI}"/><title>전체 인원 업무 현황 · FOX AI</title>`
     + `<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>`
     + `<link rel="stylesheet" href="styles.css"/>`
-    + `<style>body{background:var(--bg);color:var(--text);margin:0;padding:34px 24px;} .dash-page{max-width:1120px;margin:0 auto;} .dash-page-title{font-size:22px;font-weight:800;margin:0 0 4px;} .dash-page-sub{font-size:13px;color:var(--sub);margin:0 0 22px;} .dash-page .dash-grid{grid-template-columns:repeat(auto-fit,minmax(260px,1fr));}</style>`
+    + `<style>body{background:var(--bg);color:var(--text);margin:0;padding:34px 24px;} .dash-page{max-width:1180px;margin:0 auto;} .dash-page-title{font-size:22px;font-weight:800;margin:0 0 4px;} .dash-page-sub{font-size:13px;color:var(--sub);margin:0 0 22px;}</style>`
     + `</head><body><div class="dash-page"><div class="dash-page-title">전체 인원 업무 현황</div>`
     + `<div class="dash-page-sub">전체 업무 ${r.teamTotal}건 · 완료 ${r.teamDone}건 · 완료율 ${r.teamPct}%</div>`
     + `${r.html}</div></body></html>`);

@@ -190,6 +190,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .dash-chip-danger b{color:var(--soft-red-tx);}
 .dash-card.dash-static{cursor:default;}
 .dash-card.dash-static:hover{background:var(--card);border-color:var(--border);transform:none;}
+/* 대시보드: 연구원별 상세(담당 업무 목록 포함) */
+.dash-members-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px;align-items:start;}
+.dash-member{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 20px;}
 
 .cal{background:var(--card);border:1px solid var(--border);border-radius:20px;overflow:hidden;}
 .cal-head{display:grid;grid-template-columns:80px repeat(5,1fr);background:var(--head-bg);}
