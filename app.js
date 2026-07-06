@@ -179,26 +179,25 @@ function memberTaskStatus(task, name){
   return task['완료'] ? 'done' : 'pending';
 }
 
-let currentMemberName = null;  // 현재 열린 멤버(새 창 버튼용)
+// 멤버별 업무 통계 (팝업·대시보드 공유)
+function computeMemberStats(name){
+  const today = midnight(new Date());
+  const mine = currentTasksCache.filter(t => getAssigneeList(t).includes(name));
+  let done = 0, overdue = 0;
+  mine.forEach(t => {
+    if(memberTaskStatus(t, name) === 'done'){ done++; }
+    else { const dl = parseDate(t['마감기한']); if(dl && dl < today) overdue++; }
+  });
+  const total = mine.length;
+  return { mine, total, done, pending: total-done, overdue, pct: total ? Math.round(done/total*100) : 0 };
+}
 
-// 멤버 리포트(제목/부제/본문 HTML) 생성 — 팝업·새 창이 공유
+// 멤버 리포트(제목/부제/본문 HTML) 생성 — 개인 팝업이 사용
 function buildMemberReport(name){
   const p = PERSON[name];
   if(!p) return null;
   const today = midnight(new Date());
-
-  const mine = currentTasksCache.filter(t => getAssigneeList(t).includes(name));
-  const total = mine.length;
-  let done = 0, overdue = 0;
-  mine.forEach(t => {
-    if(memberTaskStatus(t, name) === 'done'){ done++; }
-    else {
-      const dl = parseDate(t['마감기한']);
-      if(dl && dl < today) overdue++;
-    }
-  });
-  const pending = total - done;
-  const pct = total ? Math.round(done/total*100) : 0;
+  const { mine, total, done, pending, overdue, pct } = computeMemberStats(name);
 
   const title = `${p.full} 업무 현황`;
   const sub = p.role ? `${p.role} · 담당 업무 ${total}건` : `담당 업무 ${total}건`;
@@ -265,7 +264,6 @@ function buildMemberReport(name){
 function openMemberModal(name){
   const r = buildMemberReport(name);
   if(!r) return;
-  currentMemberName = name;
   document.getElementById('memberModalTitle').textContent = r.title;
   document.getElementById('memberModalSub').textContent = r.sub;
   document.getElementById('memberModalBody').innerHTML = r.body;
@@ -278,22 +276,58 @@ function closeMemberModal(){
   document.getElementById('memberModal').classList.remove('show');
 }
 
-// 같은 리포트를 별도 창(새 탭)으로 — 앱 styles.css를 그대로 불러 동일 디자인 + 다크모드 반영
-function openMemberWindow(name){
-  name = name || currentMemberName;
-  const r = buildMemberReport(name);
-  if(!r) return;
-  const w = window.open('', '_blank', 'width=600,height=840');
-  if(!w){ showToast('팝업이 차단됐어요 — 브라우저에서 팝업 허용 후 다시 시도', true); return; }
-  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
-  w.document.write(`<!doctype html><html lang="ko"${dark?' data-theme="dark"':''}><head><meta charset="utf-8"/>`
-    + `<meta name="viewport" content="width=device-width,initial-scale=1"/>`
-    + `<base href="${document.baseURI}"/><title>${r.title}</title>`
-    + `<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>`
-    + `<link rel="stylesheet" href="styles.css"/>`
-    + `<style>body{background:var(--bg);color:var(--text);margin:0;padding:28px 20px;} .rep{max-width:600px;margin:0 auto;} .rep-head{font-size:12px;color:var(--sub);margin-bottom:14px;}</style>`
-    + `</head><body><div class="rep"><div class="rep-head">FOX AI · 연구원 업무 현황</div>${r.body}</div></body></html>`);
-  w.document.close();
+// ───────── 전체 인원 업무 현황 대시보드 ─────────
+function openTeamDashboard(){
+  const members = Object.values(PERSON);
+
+  // 팀 전체 요약 (유니크 업무 기준)
+  const teamTotal = currentTasksCache.length;
+  const teamDone  = currentTasksCache.filter(t => t['완료']).length;
+  const teamPct   = teamTotal ? Math.round(teamDone/teamTotal*100) : 0;
+  document.getElementById('dashSub').textContent = `전체 업무 ${teamTotal}건 · 완료 ${teamDone}건 · 완료율 ${teamPct}%`;
+
+  let html = `
+    <div class="dash-summary">
+      <div class="dash-sum-row">
+        <span class="dash-sum-label">팀 전체 완료율</span>
+        <span class="dash-sum-pct">${teamPct}%</span>
+      </div>
+      <div class="mem-progress-track"><div class="mem-progress-fill${teamTotal&&teamDone===teamTotal?' full':''}" style="width:${teamPct}%"></div></div>
+    </div>
+    <div class="dash-grid">`;
+
+  members.forEach(p => {
+    const s = computeMemberStats(p.full);
+    const safe = p.full.replace(/'/g,'').replace(/"/g,'');
+    html += `
+      <div class="dash-card" role="button" tabindex="0" title="${p.full} 상세 보기" onclick="closeTeamDashboard();openMemberModal('${safe}')">
+        <div class="dash-card-top">
+          <div class="av av-${p.cls} dash-av">${p.short}</div>
+          <div class="dash-card-info">
+            <div class="dash-card-name">${p.full}</div>
+            <div class="dash-card-role">${p.role||''}</div>
+          </div>
+          <div class="dash-card-pct">${s.pct}<span>%</span></div>
+        </div>
+        <div class="mem-progress-track"><div class="mem-progress-fill${s.total&&s.done===s.total?' full':''}" style="width:${s.pct}%"></div></div>
+        <div class="dash-card-stats">
+          <span class="dash-chip"><b>${s.total}</b> 전체</span>
+          <span class="dash-chip dash-chip-done"><b>${s.done}</b> 완료</span>
+          <span class="dash-chip"><b>${s.pending}</b> 진행중</span>
+          <span class="dash-chip ${s.overdue?'dash-chip-danger':''}"><b>${s.overdue}</b> 지남</span>
+        </div>
+      </div>`;
+  });
+  html += `</div>`;
+
+  document.getElementById('dashBody').innerHTML = html;
+  document.getElementById('dashOverlay').classList.add('show');
+  document.getElementById('dashModal').classList.add('show');
+}
+
+function closeTeamDashboard(){
+  document.getElementById('dashOverlay').classList.remove('show');
+  document.getElementById('dashModal').classList.remove('show');
 }
 
 function renderVal(val){
@@ -1054,7 +1088,7 @@ async function deleteMember(idx, name){
 }
 
 document.addEventListener('keydown', e=>{
-  if(e.key==='Escape'){closeOverdueModal();closeSettings();closeTaskModal();closeCommentModal();closeEventEditor();closeCalendarModal();closeDutyPicker();closeMemberModal();closeProjectModal();}
+  if(e.key==='Escape'){closeOverdueModal();closeSettings();closeTaskModal();closeCommentModal();closeEventEditor();closeCalendarModal();closeDutyPicker();closeMemberModal();closeProjectModal();closeTeamDashboard();}
   // 단축키: N → 업무 추가 (입력 필드 포커스 중이면 무시)
   if(e.key==='n' || e.key==='N'){
     const t = e.target;
