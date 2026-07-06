@@ -276,15 +276,12 @@ function closeMemberModal(){
   document.getElementById('memberModal').classList.remove('show');
 }
 
-// ───────── 전체 인원 업무 현황 대시보드 ─────────
-function openTeamDashboard(){
+// ───────── 전체 인원 업무 현황 대시보드 (전체 크기 새 창) ─────────
+function buildTeamDashboardBody(){
   const members = Object.values(PERSON);
-
-  // 팀 전체 요약 (유니크 업무 기준)
   const teamTotal = currentTasksCache.length;
   const teamDone  = currentTasksCache.filter(t => t['완료']).length;
   const teamPct   = teamTotal ? Math.round(teamDone/teamTotal*100) : 0;
-  document.getElementById('dashSub').textContent = `전체 업무 ${teamTotal}건 · 완료 ${teamDone}건 · 완료율 ${teamPct}%`;
 
   let html = `
     <div class="dash-summary">
@@ -298,9 +295,8 @@ function openTeamDashboard(){
 
   members.forEach(p => {
     const s = computeMemberStats(p.full);
-    const safe = p.full.replace(/'/g,'').replace(/"/g,'');
     html += `
-      <div class="dash-card" role="button" tabindex="0" title="${p.full} 상세 보기" onclick="closeTeamDashboard();openMemberModal('${safe}')">
+      <div class="dash-card dash-static">
         <div class="dash-card-top">
           <div class="av av-${p.cls} dash-av">${p.short}</div>
           <div class="dash-card-info">
@@ -319,15 +315,24 @@ function openTeamDashboard(){
       </div>`;
   });
   html += `</div>`;
-
-  document.getElementById('dashBody').innerHTML = html;
-  document.getElementById('dashOverlay').classList.add('show');
-  document.getElementById('dashModal').classList.add('show');
+  return { html, teamTotal, teamDone, teamPct };
 }
 
-function closeTeamDashboard(){
-  document.getElementById('dashOverlay').classList.remove('show');
-  document.getElementById('dashModal').classList.remove('show');
+function openTeamDashboard(){
+  const r = buildTeamDashboardBody();
+  const w = window.open('', '_blank');   // 크기 미지정 → 전체 크기 새 탭
+  if(!w){ showToast('팝업이 차단됐어요 — 브라우저에서 팝업 허용 후 다시 시도', true); return; }
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  w.document.write(`<!doctype html><html lang="ko"${dark?' data-theme="dark"':''}><head><meta charset="utf-8"/>`
+    + `<meta name="viewport" content="width=device-width,initial-scale=1"/>`
+    + `<base href="${document.baseURI}"/><title>전체 인원 업무 현황 · FOX AI</title>`
+    + `<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>`
+    + `<link rel="stylesheet" href="styles.css"/>`
+    + `<style>body{background:var(--bg);color:var(--text);margin:0;padding:34px 24px;} .dash-page{max-width:1120px;margin:0 auto;} .dash-page-title{font-size:22px;font-weight:800;margin:0 0 4px;} .dash-page-sub{font-size:13px;color:var(--sub);margin:0 0 22px;} .dash-page .dash-grid{grid-template-columns:repeat(auto-fit,minmax(260px,1fr));}</style>`
+    + `</head><body><div class="dash-page"><div class="dash-page-title">전체 인원 업무 현황</div>`
+    + `<div class="dash-page-sub">전체 업무 ${r.teamTotal}건 · 완료 ${r.teamDone}건 · 완료율 ${r.teamPct}%</div>`
+    + `${r.html}</div></body></html>`);
+  w.document.close();
 }
 
 function renderVal(val){
@@ -1088,7 +1093,7 @@ async function deleteMember(idx, name){
 }
 
 document.addEventListener('keydown', e=>{
-  if(e.key==='Escape'){closeOverdueModal();closeSettings();closeTaskModal();closeCommentModal();closeEventEditor();closeCalendarModal();closeDutyPicker();closeMemberModal();closeProjectModal();closeTeamDashboard();}
+  if(e.key==='Escape'){closeOverdueModal();closeSettings();closeTaskModal();closeCommentModal();closeEventEditor();closeCalendarModal();closeDutyPicker();closeMemberModal();closeProjectModal();}
   // 단축키: N → 업무 추가 (입력 필드 포커스 중이면 무시)
   if(e.key==='n' || e.key==='N'){
     const t = e.target;

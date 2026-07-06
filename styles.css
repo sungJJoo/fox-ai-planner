@@ -188,6 +188,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .dash-chip b{font-weight:800;color:var(--text);}
 .dash-chip-done b{color:#22c55e;}
 .dash-chip-danger b{color:var(--soft-red-tx);}
+.dash-card.dash-static{cursor:default;}
+.dash-card.dash-static:hover{background:var(--card);border-color:var(--border);transform:none;}
 
 .cal{background:var(--card);border:1px solid var(--border);border-radius:20px;overflow:hidden;}
 .cal-head{display:grid;grid-template-columns:80px repeat(5,1fr);background:var(--head-bg);}
