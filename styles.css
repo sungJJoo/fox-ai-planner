@@ -60,6 +60,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .settings-btn{width:38px;height:38px;border-radius:11px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .15s,transform .2s;}
 .settings-btn:hover{background:var(--head-bg);transform:rotate(30deg);}
 .settings-btn svg{width:18px;height:18px;fill:none;stroke:var(--text);stroke-width:1.8;stroke-linecap:round;}
+/* 관리자 버튼: 회전 hover 없이, ON이면 강조 */
+.admin-btn:hover{transform:none;}
+.admin-btn.on{background:var(--accent);border-color:var(--accent);}
+.admin-btn.on svg{stroke:var(--accent-fg);}
+/* 관리자 전용 요소: 관리자 모드가 아니면 숨김 (원래 display 유지) */
+body:not(.is-admin) .admin-only{display:none !important;}
 
 /* ───────── AI 연구소 규칙 노트 (우측 여백 · 에디토리얼) ───────── */
 .rules-note{position:fixed;top:26px;right:26px;width:242px;z-index:40;display:flex;flex-direction:column;gap:18px;padding:20px 22px;background:var(--card);border:1px solid var(--border);border-radius:14px;}

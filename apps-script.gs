@@ -63,10 +63,41 @@ function currentVersion() {
   return PropertiesService.getScriptProperties().getProperty('v') || '0';
 }
 
+/* ═══════════════════════ 관리자 인증 ═══════════════════════
+ * 삭제(업무/프로젝트/반복/일정) + 멤버 관리 액션은 adminKey가 일치할 때만 허용.
+ * 토큰은 Script Property 'ADMIN_TOKEN'에 저장 (코드/깃허브에 노출 안 됨).
+ * ★ 최초 1회: 아래 setupAdminToken의 문자열을 원하는 비밀키로 바꾸고
+ *    GAS 편집기에서 setupAdminToken 함수를 직접 실행하세요.
+ */
+function getAdminToken() {
+  return PropertiesService.getScriptProperties().getProperty('ADMIN_TOKEN') || '';
+}
+function isAdmin(e) {
+  const t = getAdminToken();
+  return !!t && e.parameter.adminKey === t;
+}
+function setupAdminToken() {
+  PropertiesService.getScriptProperties().setProperty('ADMIN_TOKEN', 'CHANGE-ME-여기에-비밀키');
+}
+function jsonOut_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
 function doGet(e) {
 
   const action = e.parameter.action;
   const ss     = SpreadsheetApp.openById(SHEET_ID);
+
+  // ── 관리자 키 검증 (프론트가 관리자 모드 진입 시 호출) ──
+  if (action === 'verifyAdmin') {
+    return jsonOut_({ ok: true, admin: isAdmin(e) });
+  }
+
+  // ── 관리자 전용 액션 가드 (삭제·멤버) ──
+  const ADMIN_ACTIONS = ['deleteTask','deleteProject','deleteRecurringTask','deleteCalendarEvent','addMember','updateMember','deleteMember'];
+  if (ADMIN_ACTIONS.indexOf(action) >= 0 && !isAdmin(e)) {
+    return jsonOut_({ ok: false, error: '관리자 인증이 필요합니다', needAdmin: true });
+  }
 
   // ── 변경 감지용 가벼운 핑 (폴링이 이걸로 함) ──
   if (action === 'getHash') {

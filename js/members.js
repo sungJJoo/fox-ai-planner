@@ -306,7 +306,7 @@ async function saveMemberAdd(){
   btn.disabled = true; btn.textContent = '추가 중...';
 
   try{
-    const res = await fetch(`${API_URL}?action=addMember&name=${encodeURIComponent(name)}&role=${encodeURIComponent(role)}&color=${color}`);
+    const res = await fetch(`${API_URL}?action=addMember&name=${encodeURIComponent(name)}&role=${encodeURIComponent(role)}&color=${color}${adminParam()}`);
     const json = await res.json();
     if(!json.ok) throw new Error(json.error||'error');
 
@@ -334,7 +334,7 @@ async function saveMemberEdit(idx, originalName){
   btn.disabled = true; btn.textContent = '저장 중...';
 
   try{
-    const res = await fetch(`${API_URL}?action=updateMember&original=${encodeURIComponent(originalName)}&name=${encodeURIComponent(name)}&role=${encodeURIComponent(role)}&color=${color}`);
+    const res = await fetch(`${API_URL}?action=updateMember&original=${encodeURIComponent(originalName)}&name=${encodeURIComponent(name)}&role=${encodeURIComponent(role)}&color=${color}${adminParam()}`);
     const json = await res.json();
     if(!json.ok) throw new Error(json.error||'error');
 
@@ -359,7 +359,7 @@ async function deleteMember(idx, name){
   if(!confirm(`${name}님을 멤버에서 제외하시겠습니까?\n시트의 다른 데이터(담당표, 근무일정)는 그대로 유지됩니다.`)) return;
 
   try{
-    const res = await fetch(`${API_URL}?action=deleteMember&name=${encodeURIComponent(name)}`);
+    const res = await fetch(`${API_URL}?action=deleteMember&name=${encodeURIComponent(name)}${adminParam()}`);
     const json = await res.json();
     if(!json.ok) throw new Error(json.error||'error');
 

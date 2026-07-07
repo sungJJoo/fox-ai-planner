@@ -252,7 +252,7 @@ function createTaskEl(task, today, now){
   el.dataset.row=row;
 
   const editBtnHtml=`<button class="task-action-btn" title="수정" onclick="event.stopPropagation();openTaskModal(${row})"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`;
-  const delBtnHtml=`<button class="task-action-btn btn-del" title="삭제" onclick="event.stopPropagation();deleteTaskRow(${row},'${safeTaskName}')"><svg viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6 l-1,14 a2,2 0 0 1 -2,2 H8 a2,2 0 0 1 -2,-2 L5,6"/><path d="M10 11v6M14 11v6"/></svg></button>`;
+  const delBtnHtml=`<button class="task-action-btn btn-del admin-only" title="삭제" onclick="event.stopPropagation();deleteTaskRow(${row},'${safeTaskName}')"><svg viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6 l-1,14 a2,2 0 0 1 -2,2 H8 a2,2 0 0 1 -2,-2 L5,6"/><path d="M10 11v6M14 11v6"/></svg></button>`;
   const commentBtnHtml=`<button class="task-action-btn${commentCount>0?' has-comments':''}" title="댓글${commentCount>0?' ('+commentCount+')':''}" onclick="event.stopPropagation();openCommentModal(${row},'${safeTaskName}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>${commentCount>0?`<span class="comment-badge">${commentCount}</span>`:''}</button>`;
 
   if(isMulti){
@@ -762,7 +762,7 @@ async function deleteTaskRow(row, taskName){
   showToast('✓ 업무가 삭제되었습니다');
 
   try{
-    const res = await fetch(`${API_URL}?action=deleteTask&row=${row}`);
+    const res = await fetch(`${API_URL}?action=deleteTask&row=${row}${adminParam()}`);
     const json = await res.json();
     if(!json.ok) throw new Error(json.error || 'error');
   }catch(err){
@@ -1065,7 +1065,7 @@ function buildRecurring(tasks){
         <button class="task-action-btn" title="수정" onclick="event.stopPropagation();openTaskModal(${row},'recurring')">
           <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
-        <button class="task-action-btn btn-del" title="삭제" onclick="event.stopPropagation();deleteRecurringTaskRow(${row},'${safeName}')">
+        <button class="task-action-btn btn-del admin-only" title="삭제" onclick="event.stopPropagation();deleteRecurringTaskRow(${row},'${safeName}')">
           <svg viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6 l-1,14 a2,2 0 0 1 -2,2 H8 a2,2 0 0 1 -2,-2 L5,6"/><path d="M10 11v6M14 11v6"/></svg>
         </button>
       </div>`;
@@ -1082,7 +1082,7 @@ async function deleteRecurringTaskRow(row, taskName){
   showToast('✓ 반복 업무가 삭제되었습니다');
 
   try{
-    const res = await fetch(`${API_URL}?action=deleteRecurringTask&row=${row}`);
+    const res = await fetch(`${API_URL}?action=deleteRecurringTask&row=${row}${adminParam()}`);
     const json = await res.json();
     if(!json.ok) throw new Error(json.error || 'error');
   }catch(err){

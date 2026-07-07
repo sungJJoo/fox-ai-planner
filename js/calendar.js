@@ -356,7 +356,7 @@ async function deleteCurrentEvent(){
   showToast('✓ 일정이 삭제되었습니다');
 
   try{
-    const res = await fetch(`${API_URL}?action=deleteCalendarEvent&row=${target}`);
+    const res = await fetch(`${API_URL}?action=deleteCalendarEvent&row=${target}${adminParam()}`);
     const json = await res.json();
     if(!json.ok) throw new Error(json.error || 'error');
   }catch(err){

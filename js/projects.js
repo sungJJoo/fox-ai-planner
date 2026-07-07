@@ -95,7 +95,7 @@ async function deleteCurrentProject(){
   if(!confirm(`프로젝트 “${pname}”을(를) 삭제할까요?\n안의 업무는 삭제되지 않고 '기타'로 이동합니다.`)) return;
   closeProjectModal();
   try{
-    const res  = await fetch(`${API_URL}?action=deleteProject&row=${eRow}`);
+    const res  = await fetch(`${API_URL}?action=deleteProject&row=${eRow}${adminParam()}`);
     const json = await res.json();
     if(!json.ok) throw new Error(json.error||'error');
     PROJECTS_LIST = PROJECTS_LIST.filter(x=>x.row!==eRow).map(x=> x.row>eRow ? {...x, row:x.row-1} : x);

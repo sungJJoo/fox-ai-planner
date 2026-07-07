@@ -1,7 +1,7 @@
 // main.js — app.js 분리 (클래식 스크립트: 전역 스코프 공유)
 
 document.addEventListener('keydown', e=>{
-  if(e.key==='Escape'){closeOverdueModal();closeSettings();closeTaskModal();closeCommentModal();closeEventEditor();closeCalendarModal();closeDutyPicker();closeMemberModal();closeProjectModal();}
+  if(e.key==='Escape'){closeOverdueModal();closeSettings();closeTaskModal();closeCommentModal();closeEventEditor();closeCalendarModal();closeDutyPicker();closeMemberModal();closeProjectModal();closeAdminModal();}
   // 단축키: N → 업무 추가 (입력 필드 포커스 중이면 무시)
   if(e.key==='n' || e.key==='N'){
     const t = e.target;
@@ -129,4 +129,5 @@ window.addEventListener('resize', closeDutyPicker);
 refreshNotifBtn();
 initCollapse();
 initPageToc();
+initAdmin();
 loadData(true).then(() => { startPolling(); });
