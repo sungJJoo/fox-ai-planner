@@ -2,12 +2,18 @@
 // 정적 파일은 stale-while-revalidate, GAS API는 네트워크 only
 // 코드 배포 시 CACHE_VERSION 을 올려서 강제 갱신
 
-const CACHE_VERSION = 'fox-planner-v25';
+const CACHE_VERSION = 'fox-planner-v26';
 const STATIC_ASSETS = [
   './',
   './index.html',
   './styles.css',
-  './app.js',
+  './js/state.js',
+  './js/api.js',
+  './js/members.js',
+  './js/calendar.js',
+  './js/tasks.js',
+  './js/projects.js',
+  './js/main.js',
   './manifest.json',
   './logo.png',
   './logo-mark.png',
