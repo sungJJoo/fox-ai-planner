@@ -22,16 +22,15 @@ function rerenderForAdmin(){
   if(typeof renderMonthGrid === 'function') renderMonthGrid();
 }
 
-// 부팅 시: 저장된 키가 있으면 백엔드로 재검증
-async function initAdmin(){
-  try{ ADMIN_KEY = localStorage.getItem('fox_admin_key') || ''; }catch(e){ ADMIN_KEY = ''; }
-  if(ADMIN_KEY){
-    try{
-      const res = await fetch(`${API_URL}?action=verifyAdmin&adminKey=${encodeURIComponent(ADMIN_KEY)}`);
-      const j = await res.json();
-      IS_ADMIN = !!(j && j.admin);
-    }catch(e){ IS_ADMIN = false; }
-    if(!IS_ADMIN){ ADMIN_KEY = ''; try{ localStorage.removeItem('fox_admin_key'); }catch(e){} }
+// 부팅 시: 저장된 PIN이 현재 PIN과 일치하면 관리자 유지
+function initAdmin(){
+  let saved = '';
+  try{ saved = localStorage.getItem('fox_admin_key') || ''; }catch(e){ saved = ''; }
+  if(saved && saved === ADMIN_PIN){
+    ADMIN_KEY = saved; IS_ADMIN = true;
+  }else{
+    ADMIN_KEY = ''; IS_ADMIN = false;
+    try{ localStorage.removeItem('fox_admin_key'); }catch(e){}
   }
   applyAdminUI();
 }
@@ -49,29 +48,16 @@ function closeAdminModal(){
   document.getElementById('adminModal').classList.remove('show');
 }
 
-async function submitAdminLogin(){
+function submitAdminLogin(){
   const key = document.getElementById('adminInput').value.trim();
-  if(!key){ showToast('관리자 키를 입력하세요', true); return; }
-  const btn = document.getElementById('adminSubmitBtn');
-  btn.disabled = true; const orig = btn.textContent; btn.textContent = '확인 중...';
-  try{
-    const res = await fetch(`${API_URL}?action=verifyAdmin&adminKey=${encodeURIComponent(key)}`);
-    const j = await res.json();
-    if(j && j.admin){
-      ADMIN_KEY = key; IS_ADMIN = true;
-      try{ localStorage.setItem('fox_admin_key', key); }catch(e){}
-      applyAdminUI();
-      closeAdminModal();
-      rerenderForAdmin();
-      showToast('✓ 관리자 모드 ON');
-    }else{
-      showToast('관리자 키가 올바르지 않습니다', true);
-    }
-  }catch(e){
-    showToast('확인 실패 — 네트워크 확인', true);
-  }finally{
-    btn.disabled = false; btn.textContent = orig;
-  }
+  if(!key){ showToast('관리자 비밀번호를 입력하세요', true); return; }
+  if(key !== ADMIN_PIN){ showToast('비밀번호가 올바르지 않습니다', true); return; }
+  ADMIN_KEY = key; IS_ADMIN = true;
+  try{ localStorage.setItem('fox_admin_key', key); }catch(e){}
+  applyAdminUI();
+  closeAdminModal();
+  rerenderForAdmin();
+  showToast('✓ 관리자 모드 ON');
 }
 
 function exitAdmin(){

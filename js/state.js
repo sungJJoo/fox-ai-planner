@@ -4,7 +4,10 @@ const DAYS_KO  = ['월','화','수','목','금'];
 const DAYS_EN  = ['Mon','Tue','Wed','Thu','Fri'];
 const DAYS_ALL = ['월','화','수','목','금','토'];
 const API_URL  = 'https://script.google.com/macros/s/AKfycbyxmp3Uo40feKuXIOWRMrS9AqcZMHZs4v3hiDqUBNsfcXHIJ285yybZoLpq988X3lcXcQ/exec';
-let ADMIN_KEY  = '';       // 관리자 토큰 (검증 성공 시 저장) · 삭제/멤버 요청에 첨부
+// ★ 관리자 비밀번호 — 원하는 값으로 바꾸세요 (프론트 PIN 방식: GAS 토큰 설정 불필요)
+//   더 강한 보안을 원하면 GAS Script Property 'ADMIN_TOKEN'을 이 값과 동일하게 설정하면 백엔드도 이중 검증함.
+const ADMIN_PIN = 'fox2026';
+let ADMIN_KEY  = '';       // 인증된 키(=PIN) · 삭제/멤버 요청에 첨부
 let IS_ADMIN   = false;    // 관리자 모드 여부
 const ANCHOR   = new Date(2026,3,27);
 const THIRTY_MIN_MS = 30 * 60 * 1000;

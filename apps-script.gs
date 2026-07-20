@@ -94,8 +94,9 @@ function doGet(e) {
   }
 
   // ── 관리자 전용 액션 가드 (삭제·멤버) ──
+  // ADMIN_TOKEN이 설정된 경우에만 백엔드 이중 검증. 미설정이면 프론트 PIN만으로 동작(가드 통과).
   const ADMIN_ACTIONS = ['deleteTask','deleteProject','deleteRecurringTask','deleteCalendarEvent','addMember','updateMember','deleteMember'];
-  if (ADMIN_ACTIONS.indexOf(action) >= 0 && !isAdmin(e)) {
+  if (ADMIN_ACTIONS.indexOf(action) >= 0 && getAdminToken() && !isAdmin(e)) {
     return jsonOut_({ ok: false, error: '관리자 인증이 필요합니다', needAdmin: true });
   }
 

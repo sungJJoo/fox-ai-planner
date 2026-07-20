@@ -840,57 +840,63 @@ body:not(.is-admin) .admin-only{display:none !important;}
 
 .cal-legend{display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-wrap:wrap;}
 .cal-legend-item{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--sub);}
-.cal-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
-.cal-dot-holiday{background:#dc2626;}
-.cal-dot-event{background:#2563eb;}
-.cal-dot-plan{background:#16a34a;}
-.cal-dot-leave{background:#d97706;}
-.cal-dot-project{background:#7c3aed;}
-.cal-dot-task{background:#0891b2;}
+.cal-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.cal-dot-holiday{background:#d93025;}
+.cal-dot-event{background:#1a73e8;}
+.cal-dot-plan{background:#188038;}
+.cal-dot-leave{background:#e37400;}
+.cal-dot-project{background:#8430ce;}
+.cal-dot-task{background:#009688;}
 .cal-add-btn{margin-left:auto;}
 
-.month-grid{border:1px solid var(--border);border-radius:14px;overflow:hidden;}
-.mg-head{display:grid;grid-template-columns:repeat(7,1fr);background:var(--head-bg);}
-.mg-head-cell{text-align:center;padding:10px 0;font-size:12px;font-weight:700;color:var(--sub);}
-.mg-head-cell.sun{color:#dc2626;}
-.mg-head-cell.sat{color:#2563eb;}
+/* ── 월 그리드 (구글 캘린더 스타일) ── */
+.month-grid{border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--card);}
+.mg-head{display:grid;grid-template-columns:repeat(7,1fr);background:var(--card);border-bottom:1px solid var(--border);}
+.mg-head-cell{text-align:center;padding:9px 0 8px;font-size:11px;font-weight:600;color:var(--sub);letter-spacing:.02em;}
+.mg-head-cell.sun{color:#d93025;}
+.mg-head-cell.sat{color:#1a73e8;}
 .mg-body{display:grid;grid-template-columns:repeat(7,1fr);}
-.mg-cell{min-height:92px;min-width:0;border-top:1px solid var(--border);border-right:1px solid var(--border);padding:6px;cursor:pointer;display:flex;flex-direction:column;gap:3px;contain:layout style paint;}
+.mg-cell{min-height:104px;min-width:0;border-top:1px solid var(--border);border-right:1px solid var(--border);padding:4px 5px 6px;cursor:pointer;display:flex;flex-direction:column;gap:2px;transition:background .1s;contain:layout style paint;}
 .mg-cell:nth-child(7n){border-right:none;}
 .mg-cell:hover{background:var(--head-bg);}
 .mg-empty{background:var(--card-soft);cursor:default;}
 .mg-empty:hover{background:var(--card-soft);}
-.mg-today{background:var(--today-cell-bg);}
-.mg-date{font-size:13px;font-weight:700;color:var(--text);width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:50%;}
-.mg-date.sun{color:#dc2626;}
-.mg-date.sat{color:#2563eb;}
-.mg-today .mg-date{background:var(--accent);color:var(--accent-fg);}
-/* 여러 날 일정 연속 막대 — 셀 패딩을 뚫고 이어지게 */
-.mg-bars{display:flex;flex-direction:column;gap:2px;min-width:0;margin:0 -6px 2px;}
-.mg-bar{height:17px;line-height:17px;font-size:10px;font-weight:600;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;border-radius:0;min-width:0;}
-.mg-bar-l{border-top-left-radius:6px;border-bottom-left-radius:6px;margin-left:2px;}
-.mg-bar-r{border-top-right-radius:6px;border-bottom-right-radius:6px;margin-right:2px;}
-.mg-bar-plan{background:#dcfce7;color:#15803d;}
-.mg-bar-event{background:#dbeafe;color:#1d4ed8;}
-.mg-bar-holiday{background:#fee2e2;color:#b91c1c;}
-
-.mg-chips{display:flex;flex-direction:column;gap:2px;overflow:hidden;min-width:0;}
-.mg-chip{font-size:10px;font-weight:600;padding:2px 6px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;line-height:1.35;min-width:0;max-width:100%;}
-.mg-chip-holiday{background:#fee2e2;color:#b91c1c;cursor:default;}
-.mg-chip-event{background:#dbeafe;color:#1d4ed8;}
-.mg-chip-plan{background:#dcfce7;color:#15803d;}
-.mg-chip-leave{background:#fef3c7;color:#b45309;cursor:default;display:flex;align-items:center;gap:4px;}
-.mg-chip-half{background:#fffbeb;color:#b45309;cursor:default;display:flex;align-items:center;gap:4px;border:1px solid #fde68a;}
-.mg-chip-project{background:#ede9fe;color:#6d28d9;cursor:default;font-weight:700;}
-.mg-chip-task{background:#cffafe;color:#0e7490;cursor:default;}
-.mg-chip-task.done{text-decoration:line-through;opacity:.5;}
-.mg-leave-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
-.mg-more{font-size:10px;font-weight:700;color:var(--faint);padding-left:4px;}
+.mg-date{font-size:12px;font-weight:600;color:var(--text);width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:50%;margin:1px auto;}
+.mg-date.sun{color:#d93025;}
+.mg-date.sat{color:#1a73e8;}
+.mg-today .mg-date{background:#1a73e8;color:#fff;}
+/* 여러 날 일정 — 솔리드 색 바 (구글 종일 일정 스타일) */
+.mg-bars{display:flex;flex-direction:column;gap:2px;min-width:0;margin:0 -5px 1px;}
+.mg-bar{height:18px;line-height:18px;font-size:11px;font-weight:500;padding:0 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;border-radius:0;min-width:0;color:#fff;}
+.mg-bar-l{border-top-left-radius:4px;border-bottom-left-radius:4px;margin-left:3px;}
+.mg-bar-r{border-top-right-radius:4px;border-bottom-right-radius:4px;margin-right:3px;}
+.mg-bar-plan{background:#188038;}
+.mg-bar-event{background:#1a73e8;}
+.mg-bar-holiday{background:#d93025;}
+/* 하루 일정 — 색점 + 텍스트 (구글 시간 일정 스타일) */
+.mg-chips{display:flex;flex-direction:column;gap:1px;overflow:hidden;min-width:0;}
+.mg-chip{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:500;color:var(--text);background:none;padding:2px 5px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;line-height:1.4;min-width:0;max-width:100%;}
+.mg-chip:hover{background:var(--head-bg);}
+.mg-chip::before{content:'';width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.mg-chip-leave::before,.mg-chip-half::before{display:none;}
+.mg-chip-holiday{color:#d93025;cursor:default;font-weight:600;}
+.mg-chip-holiday::before{background:#d93025;}
+.mg-chip-event::before{background:#1a73e8;}
+.mg-chip-plan::before{background:#188038;}
+.mg-chip-project{cursor:default;}
+.mg-chip-project::before{background:#8430ce;}
+.mg-chip-task{cursor:default;}
+.mg-chip-task::before{background:#009688;}
+.mg-chip-task.done{text-decoration:line-through;color:var(--faint);}
+.mg-chip-task.done::before{opacity:.4;}
+.mg-leave-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.mg-more{font-size:11px;font-weight:600;color:var(--sub);padding:1px 5px;cursor:pointer;}
+.mg-more:hover{color:var(--text);}
 
 /* 일정 유형 선택 칩 */
-.cal-type-chip.active.cal-type-holiday{background:#dc2626;border-color:#dc2626;color:#fff;}
-.cal-type-chip.active.cal-type-event{background:#2563eb;border-color:#2563eb;color:#fff;}
-.cal-type-chip.active.cal-type-plan{background:#16a34a;border-color:#16a34a;color:#fff;}
+.cal-type-chip.active.cal-type-holiday{background:#d93025;border-color:#d93025;color:#fff;}
+.cal-type-chip.active.cal-type-event{background:#1a73e8;border-color:#1a73e8;color:#fff;}
+.cal-type-chip.active.cal-type-plan{background:#188038;border-color:#188038;color:#fff;}
 
 @media(max-width:680px){
   .mg-cell{min-height:64px;padding:4px;}
@@ -903,22 +909,12 @@ body:not(.is-admin) .admin-only{display:none !important;}
 [data-theme="dark"] .task-action-btn.has-comments{border-color:#1d4d6e;}
 [data-theme="dark"] .comment-del-btn:hover{background:var(--soft-red-bg-strong);border-color:var(--soft-red-br);}
 
-/* 캘린더 다크 모드 — 칩 톤 다운 */
-[data-theme="dark"] .mg-chip-holiday{background:#2e1818;color:#f87171;}
-[data-theme="dark"] .mg-chip-event{background:#13243d;color:#60a5fa;}
-[data-theme="dark"] .mg-chip-plan{background:#0e2a1c;color:#4ade80;}
-[data-theme="dark"] .mg-chip-leave{background:#2e2615;color:#fcd34d;}
-[data-theme="dark"] .mg-chip-project{background:#2a1f45;color:#c4b5fd;}
-[data-theme="dark"] .mg-chip-task{background:#0c3a42;color:#67e8f9;}
-[data-theme="dark"] .cal-dot-project{background:#a78bfa;}
-[data-theme="dark"] .cal-dot-task{background:#22d3ee;}
-[data-theme="dark"] .mg-chip-half{background:#241f12;color:#fcd34d;border-color:#4a3b1f;}
-[data-theme="dark"] .cal-dot-leave{background:#fbbf24;}
-[data-theme="dark"] .mg-bar-plan{background:#0e2a1c;color:#4ade80;}
-[data-theme="dark"] .mg-bar-event{background:#13243d;color:#60a5fa;}
-[data-theme="dark"] .mg-bar-holiday{background:#2e1818;color:#f87171;}
-[data-theme="dark"] .mg-head-cell.sun,[data-theme="dark"] .mg-date.sun{color:#f87171;}
-[data-theme="dark"] .mg-head-cell.sat,[data-theme="dark"] .mg-date.sat{color:#60a5fa;}
+/* 캘린더 다크 모드 — 색점/바 색은 라이트와 동일(구글식), 주말 글자색만 밝게 */
+[data-theme="dark"] .mg-chip-holiday{color:#f28b82;}
+[data-theme="dark"] .mg-chip-holiday::before{background:#f28b82;}
+[data-theme="dark"] .mg-head-cell.sun,[data-theme="dark"] .mg-date.sun{color:#f28b82;}
+[data-theme="dark"] .mg-head-cell.sat,[data-theme="dark"] .mg-date.sat{color:#8ab4f8;}
+[data-theme="dark"] .mg-today .mg-date{background:#8ab4f8;color:#15151a;}
 [data-theme="dark"] .cal-dot-holiday{background:#f87171;}
 [data-theme="dark"] .cal-dot-event{background:#60a5fa;}
 [data-theme="dark"] .cal-dot-plan{background:#4ade80;}

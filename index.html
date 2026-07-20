@@ -346,7 +346,7 @@
   <div class="modal-header">
     <div>
       <div class="modal-title">관리자 모드</div>
-      <div class="modal-sub">관리자 키를 입력하면 삭제·멤버·설정이 열립니다</div>
+      <div class="modal-sub">비밀번호를 입력하면 삭제·멤버·설정이 열립니다</div>
     </div>
     <button class="modal-close" onclick="closeAdminModal()">
       <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -355,8 +355,8 @@
   <div class="modal-body">
     <div class="task-form">
       <div class="field">
-        <label class="field-label">관리자 키 *</label>
-        <input class="field-input" type="password" id="adminInput" placeholder="비밀 키 입력" onkeydown="if(event.key==='Enter')submitAdminLogin()"/>
+        <label class="field-label">관리자 비밀번호 *</label>
+        <input class="field-input" type="password" id="adminInput" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter')submitAdminLogin()"/>
       </div>
     </div>
   </div>
